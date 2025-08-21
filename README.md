@@ -19,7 +19,7 @@ This project provides an easy-to-use web interface for configuring and monitorin
    
 2. **Clone this repository:**
    ```bash
-   curl -sL https://raw.githubusercontent.com/Alfahad73/Wingbits-WebUI-Config/master/install.sh | sudo bash
+   curl -sL https://raw.githubusercontent.com/Alfahad73/Wingbits-WebUI-Config-V2/master/install.sh | sudo bash
 
    
 The script will automatically detect your system, install all requirements, and launch the application.
