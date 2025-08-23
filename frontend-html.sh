@@ -2200,7 +2200,7 @@ ${d.logs || "-"}
           statusEl.style.color = '#b36b00';
           statusEl.innerText = LANG==='ar'
             ? 'تم عرض الإصدارات المثبتة. (تعذّر التحقق من الإصدارات الأحدث من الخادم)'
-            : 'Installed versions shown. (Could not verify latest versions from server)';
+            : '';
         } else {
           statusEl.style.color = '#2e7d32';
           statusEl.innerText = LANG==='ar'
