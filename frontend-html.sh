@@ -321,7 +321,7 @@ body.rtl .diagnostics-section {
     width: 100%;
     max-width: 400px;
     text-align: center;
-    margin: auto; /* This helps center the block itself within its flex container */
+    margin: auto; /* Center within flex container */
 }
 .login-box h2 {
     margin-bottom: 30px;
@@ -2197,10 +2197,8 @@ ${d.logs || "-"}
 
       if (statusEl){
         if (!latest.panel && !latest.wingbits) {
-          statusEl.style.color = '#b36b00';
-          statusEl.innerText = LANG==='ar'
-            ? 'تم عرض الإصدارات المثبتة. (تعذّر التحقق من الإصدارات الأحدث من الخادم)'
-            : '';
+          // Remove any "could not verify" message entirely (as requested)
+          statusEl.innerText = '';
         } else {
           statusEl.style.color = '#2e7d32';
           statusEl.innerText = LANG==='ar'
@@ -2401,7 +2399,7 @@ ${d.logs || "-"}
     }catch(e){ return text; }
   }
 
-  // Build context-aware Next Steps block based on actual failure cues
+  // Build context-aware "Next steps" block based on actual failure cues
   function _wb_buildNextSteps(title, details, status){
     const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
     const t = (details || '').toLowerCase();
@@ -2424,9 +2422,12 @@ ${d.logs || "-"}
       diskLow: /(disk .*(full|low)|no space left)/i.test(t),
       memLow: /(out of memory|oom|low memory)/i.test(t),
       tempHigh: /(overheat|thermal|high temp|throttled)/i.test(t),
+      // NEW: wingbits service masked/inactive
+      wingbitsMasked: /unit\s+wingbits\.service\s+is\s+masked/i.test(t) || (/loaded:\s*masked/i.test(t) && /wingbits\.service/i.test(t)),
+      wingbitsInactive: (/wingbits\.service[^\n]*inactive\s*\(dead\)/i.test(t)) || ((/active:\s*inactive\s*\(dead\)/i.test(t)) && /wingbits\.service/i.test(t)),
     };
 
-    // GeoSigner-only guidance
+    // GeoSigner-only guidance (keep it focused)
     if (cues.geosignerMissing || cues.geosignerNotLinked){
       const tips = (lang === 'ar')
         ? [
@@ -2443,6 +2444,27 @@ ${d.logs || "-"}
     }
 
     const tips = [];
+
+    // Wingbits service masked/inactive
+    if (cues.wingbitsMasked){
+      tips.push(
+        lang==='ar'
+          ? 'الخدمة مُقنّعة (masked): نفّذ sudo systemctl unmask wingbits && sudo systemctl enable --now wingbits.'
+          : 'Service is masked: run sudo systemctl unmask wingbits && sudo systemctl enable --now wingbits.',
+        lang==='ar'
+          ? 'بدلاً من ذلك، فعّل "Enable safe auto-fix" بالأعلى وشغّل التشخيص لإعادة تشغيلها تلقائيًا.'
+          : 'Alternatively, enable "Enable safe auto-fix" above and re-run diagnostics to let the panel restart it automatically.'
+      );
+    } else if (cues.wingbitsInactive){
+      tips.push(
+        lang==='ar'
+          ? 'أعد تشغيل خدمة wingbits: sudo systemctl restart wingbits (أو استخدم زر Restart في اللوحة).'
+          : 'Restart the wingbits service: sudo systemctl restart wingbits (or use the Restart button in the panel).',
+        lang==='ar'
+          ? 'إذا كانت تتوقف مجددًا، افحص السجلات: journalctl -u wingbits -n 200.'
+          : 'If it keeps stopping, check logs: journalctl -u wingbits -n 200.'
+      );
+    }
 
     // SDR likely root-cause (explicit missing or zero input symptoms)
     const sdrLikely = cues.sdrMissing || cues.inputZero;
@@ -2499,7 +2521,7 @@ ${d.logs || "-"}
 
   // Render "Next steps" with red header for both FAIL and WARN
   function _wb_renderNextSteps(lines, status){
-    const color = '#c62828'; // Always red for FAIL/WARN as requested
+    const color = '#c62828'; // Always red for FAIL/WARN
     return (
       '<div class="ts-details" style="margin-top:10px;border-top:1px dashed #e6eaf2;padding-top:10px">'
       + `<div style="font-weight:800;color:${color};margin-bottom:6px">Next steps:</div>`
@@ -2594,7 +2616,7 @@ ${d.logs || "-"}
 
       let checks = (js.checks || []).map(c => ({...c, status: _wb_inferStatus(c.details, c.status)}));
 
-      // If readsb is healthy now, downgrade old hints
+      // If readsb is healthy now, downgrade old hints to OK
       try{
         const readsbHealthy = (checks || []).some(x => /wingbits detailed status/i.test(x.title||'') && /data input status:\s*ok/i.test(x.details||''));
         if (readsbHealthy){
