@@ -797,6 +797,7 @@ def api_shutdown():
     return jsonify({'result': "Device is shutting down...", 'desc': lang_desc("pi_shutdown", lang)})
 
 # ----------------- NEW: SMART TROUBLESHOOTER -----------------
+
 def _svc_active(name):
     try:
         out = subprocess.check_output(['systemctl', 'is-active', name], stderr=subprocess.STDOUT).decode().strip()
@@ -832,7 +833,7 @@ def _readsb_flow_ok(stats):
 def _parse_readsb_hints(log_text):
     hints = []
     patterns = [
-        (r'No supported devices found', "SDR not detected (driver/USB). تأكد من توصيل الدونغل وتعريفه."),
+        (r'No supported devices found', "SDR not detected (driver/USB). تأكد من توصيل الدونجل وتعريفه."),
         (r'usb_open error|could not open', "لا يمكن فتح الدونجل (سماحية/تعريف). جرّب إعادة التشغيل أو تغيير المنفذ."),
         (r'rtlsdr_demod_write_reg failed', "مشكلة اتصال RTL-SDR. تحقق من الكابل والطاقة."),
         (r'usb_claim_interface error', "تعارض برنامج آخر مع الدونجل (dvb_usb_rtl28xxu). جرّب: sudo rmmod dvb_usb_rtl28xxu"),
@@ -874,6 +875,52 @@ def _status_label(ok_bool, warn=False):
     if ok_bool and not warn:
         return "OK"
     return "WARN" if warn else "FAIL"
+
+# ---- NEW: helpers for auto-fix (masked/enable/start) ----
+def _run_list(cmd_list):
+    """Run a command list without shell, return (rc, out, err)."""
+    env = os.environ.copy()
+    env["LANG"] = "C"
+    try:
+        p = subprocess.run(cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+        return p.returncode, (p.stdout or "").strip(), (p.stderr or "").strip()
+    except Exception as e:
+        return 1, "", f"{type(e).__name__}: {e}"
+
+def _sysctl_state(unit="wingbits"):
+    """Return (enabled_state, active_state) from systemd."""
+    rc1, out1, _ = _run_list(["systemctl","is-enabled",unit])
+    rc2, out2, _ = _run_list(["systemctl","is-active",unit])
+    en = (out1 or "unknown").strip()
+    ac = (out2 or "unknown").strip()
+    if rc1 != 0 and not en: en = "unknown"
+    if rc2 != 0 and not ac: ac = "unknown"
+    return en, ac
+
+def _autofix_wingbits():
+    """
+    Auto-fix for wingbits:
+      - If masked: unmask + enable --now
+      - Else if not active: restart
+    Returns (applied_actions_list, enabled_state, active_state)
+    """
+    applied = []
+    enabled, active = _sysctl_state("wingbits")
+
+    if enabled == "masked":
+        for cmd in [
+            ["sudo","-n","systemctl","unmask","wingbits"],
+            ["sudo","-n","systemctl","enable","--now","wingbits"],
+        ]:
+            rc, out, err = _run_list(cmd)
+            applied.append({"action": " ".join(cmd), "result": (out or err or f"rc={rc}")})
+        enabled, active = _sysctl_state("wingbits")
+    elif active != "active":
+        rc, out, err = _run_list(["sudo","-n","systemctl","restart","wingbits"])
+        applied.append({"action": "sudo -n systemctl restart wingbits", "result": (out or err or f"rc={rc}")})
+        enabled, active = _sysctl_state("wingbits")
+
+    return applied, enabled, active
 
 @app.route('/api/troubleshoot/run', methods=['POST'])
 @login_required
@@ -985,7 +1032,7 @@ def api_troubleshoot_run():
     if not res_ok:
         summary_warnings += 1
 
-    # Summary
+    # Summary so far
     overall = "OK"
     if summary_fail > 0:
         overall = "ERROR"
@@ -993,6 +1040,38 @@ def api_troubleshoot_run():
         overall = "WARN"
 
     applied = []
+    autofix_state = None
+
+    # --- NEW: masked/enable/start auto-fix for wingbits ---
+    if apply_fix:
+        try:
+            actions, enabled, active = _autofix_wingbits()
+            if actions:
+                applied.extend(actions)
+            autofix_state = {"enabled": enabled, "active": active}
+
+            # If wingbits recovered, drop planned restart for wingbits
+            if enabled == "enabled" and active == "active":
+                safe_actions = [p for p in safe_actions if "wingbits" not in p[1]]
+
+            # Refresh the 'svc_wingbits' check to reflect new state
+            try:
+                refreshed_active = _svc_active("wingbits")
+                for i, c in enumerate(checks):
+                    if c.get("id") == "svc_wingbits":
+                        checks[i] = {
+                            "id":"svc_wingbits",
+                            "title":"wingbits service",
+                            "status": _status_label(refreshed_active),
+                            "details": _status_head("wingbits")
+                        }
+                        break
+            except Exception:
+                pass
+        except Exception as e:
+            applied.append({"action": "autofix_wingbits", "result": f"Error: {e}"})
+
+    # Execute remaining safe actions (restart readsb, etc.)
     if apply_fix and safe_actions:
         for title, cmd in safe_actions:
             out = run_shell(cmd)
@@ -1002,7 +1081,7 @@ def api_troubleshoot_run():
         "ok": True,
         "summary": {"overall": overall, "fails": summary_fail, "warnings": summary_warnings},
         "checks": checks,
-        "autofix": {"applied": applied, "planned": [{"title":a, "cmd":c} for a,c in safe_actions]}
+        "autofix": {"applied": applied, "planned": [{"title":a, "cmd":c} for a,c in safe_actions], "state": autofix_state}
     })
 
 # ----------------- Misc Debug Info -----------------
