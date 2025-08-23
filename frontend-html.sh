@@ -2227,38 +2227,36 @@ ${d.logs || "-"}
     txt.en.summary_ok = txt.en.summary_ok || "Station is running normally.";
     txt.en.summary_warn = txt.en.summary_warn || "Station is running with warnings.";
     txt.en.summary_fail = txt.en.summary_fail || "Station is NOT healthy.";
-    txt.en.next_steps = txt.en.next_steps || "Next steps";
     txt.ar.troubleshooter = txt.ar.troubleshooter || "أداة تشخيص ذكية";
     txt.ar.run_diagnostics = txt.ar.run_diagnostics || "تشغيل التشخيص";
     txt.ar.safe_fix = txt.ar.safe_fix || "تفعيل الإصلاح التلقائي الآمن";
     txt.ar.summary_ok = txt.ar.summary_ok || "المحطة تعمل بشكل طبيعي.";
     txt.ar.summary_warn = txt.ar.summary_warn || "المحطة تعمل مع تحذيرات.";
     txt.ar.summary_fail = txt.ar.summary_fail || "المحطة ليست بحالة جيدة.";
-    txt.ar.next_steps = txt.ar.next_steps || "الخطوات المقترحة";
   } catch(e) {}
 
+  // ـــ تمييز الحالة من النص مع تجاهل التحذيرات المُزالة/المتجاهَلة ـــ
   function _wb_inferStatus(details, status){
-  const t = (details || '').toLowerCase();
+    const t = (details || '').toLowerCase();
 
-  if (t.includes('warning') && (t.includes('ignored') || t.includes('cleared')))
+    // تحذيرات مُتجاهلة لا تُحسب
+    if (t.includes('warning') && (t.includes('ignored') || t.includes('cleared')))
+      return status || 'OK';
+
+    const hard = t.includes('failed') || t.includes('error')
+      || t.includes('no geosigner device found')
+      || t.includes('geosigner not available')
+      || t.includes('geosigner is not linked')
+      || /[✗×]/.test(details || '');
+    if (hard) return 'FAIL';
+
+    if (t.includes('warn') || t.includes('warning'))
+      return status === 'OK' ? 'WARN' : (status || 'WARN');
+
     return status || 'OK';
-
-  const hard = t.includes('failed') || t.includes('error')
-    || t.includes('no geosigner device found')
-    || t.includes('geosigner is not linked')
-    || t.includes('not linked') || t.includes('not available')
-    || /[✗×]/.test(details || '');
-  if (hard) return 'FAIL';
-
-  if (t.includes('warn') || t.includes('warning')) {
-    return status === 'OK' ? 'WARN' : (status || 'WARN');
   }
 
-  return status || 'OK';
-}
-
-
-  // Show EN only when UI is EN (hide Arabic hints) — and vice versa
+  // تنظيف السطور بحسب اللغة المعروضة
   function _wb_filterDetailsByLang(text){
     try{
       const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
@@ -2281,177 +2279,129 @@ ${d.logs || "-"}
     }catch(e){ return text; }
   }
 
-  // Advice dictionary (now colors red on FAIL/WARN)
-  function _wb_advice(check, status){
+  // ـــ نصائح موجهة حسب العطل الفعلي فقط ـــ
+  function _wb_buildNextSteps(title, details, status){
     const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
-    const title = (check.title||'').toLowerCase();
-    const details = (check.details||'').toLowerCase();
-    const bullets = [];
-    const add = (en, ar) => bullets.push(lang==='ar'? ar : en);
+    const t = (details || '').toLowerCase();
+    const isFail = status === 'FAIL' || /failed|error|✗|×/i.test(details || '');
 
-    // Patterns
-    const isInternet = title.includes('internet') || details.includes('not connected to internet');
-    const isDNS = title.includes('dns') || details.includes('dns') || details.includes('resolve');
-    const isNTP = title.includes('time sync') || details.includes('ntp') || details.includes('timesync');
-    const isDisk = title.includes('disk') || details.includes('disk');
-    const isRAM = title.includes('memory') || title.includes('ram') || details.includes('ram');
-    const isCPUTemp = title.includes('temp') || details.includes('temp') || details.includes('thermal') || details.includes('throttle');
-    const isSDR = title.includes('sdr') || details.includes('rtlsdr') || details.includes('rtl/sdr') || details.includes('no rtl') || details.includes('no supported devices');
-    const isReadsb = title.includes('readsb');
-    const isReadsbFlow = title.includes('data flow') || details.includes('stats.json not found') || details.includes('0 bytes') || details.includes('messages: 0');
-    const isWingbits = title.includes('wingbits service') || details.includes('failed connecting to wingbits');
-    const isGeoSigner = title.includes('geosigner') || details.includes('geosigner');
+    if (!isFail) return ''; // لا تعرض خطوات عند OK
 
-    // Internet
-    if (isInternet){
-      add(
-        "Check network cable/Wi-Fi, then run: ping 1.1.1.1. If ping fails, reconnect to your router or reboot it.",
-        "تحقق من كابل الشبكة/الواي فاي، ثم شغّل: ping 1.1.1.1. إذا فشل، أعد الاتصال بالموجّه أو أعد تشغيله."
-      );
-      add(
-        "If your ISP/firewall blocks outbound, allow TCP 6004 and HTTPS to Wingbits domains.",
-        "إن كان الجدار الناري/مزود الخدمة يقيّد الخروج، اسمح بمنفذ TCP 6004 والـ HTTPS لِنطاقات Wingbits."
-      );
+    const cues = {
+      geosignerMissing: /no geosigner device found|geosigner not available/i.test(t),
+      geosignerNotLinked: /geosigner is not linked/i.test(t),
+      sdrMissing: /rtlsdr:\s*no supported devices|sdr not detected|no rtl[-\/]?sdr/i.test(t),
+      readsbDown: /stats\.json not found|readsb\.service[^\n]*fail|sdropen\(\) failed|abnormal exit/i.test(t),
+      // DNS فشل حقيقي فقط (وليس مجرد سطر "DNS resolution for ...")
+      dnsFail: /(temporary failure in name resolution|no such host|could not resolve|resolve.*failed|dns.*(fail|error))/i.test(t),
+      ntpBad: /ntp.*(unsync|not sync|false)/i.test(t),
+      diskLow: /(disk .*(full|low)|no space left)/i.test(t),
+      memLow: /(out of memory|oom|low memory)/i.test(t),
+      tempHigh: /(overheat|thermal|high temp|throttled)/i.test(t),
+    };
+
+    // لو العطل GeoSigner فقط، أعطِ تعليمات GeoSigner فقط
+    if (cues.geosignerMissing || cues.geosignerNotLinked){
+      const tips = (lang === 'ar')
+        ? [
+            'تأكد من توصيل جهاز GeoSigner عبر USB (جرّب منفذ/سلك آخر)، وتحقق من ظهوره في lsusb.',
+            'إذا لم يُكتشف بعد ذلك، فقد يكون الجهاز تالفًا — تواصل مع الدعم أو استبدل الوحدة.',
+            cues.geosignerNotLinked ? 'نفّذ: wingbits geosigner link ثم تحقّق باستخدام: wingbits status.' : null,
+          ].filter(Boolean)
+        : [
+            'Make sure the GeoSigner USB is connected (try another port/cable); check lsusb for detection.',
+            'If still not detected, the device may be faulty — contact support or replace the unit.',
+            cues.geosignerNotLinked ? 'Run: wingbits geosigner link, then verify with: wingbits status.' : null,
+          ].filter(Boolean);
+      return _wb_renderNextSteps(tips, status);
     }
 
-    // DNS
-    if (isDNS){
-      add(
-        "Try setting fallback DNS (e.g., 1.1.1.1, 8.8.8.8). On systemd: edit /etc/systemd/resolved.conf and use resolvectl flush-caches.",
-        "جرّب تعيين DNS احتياطي (مثل 1.1.1.1 و 8.8.8.8). على systemd: حرّر ‎/etc/systemd/resolved.conf ثم نفّذ resolvectl flush-caches."
-      );
-      add(
-        "Test: dig api.wingbits.com or systemd-resolve --status to verify resolution.",
-        "اختبر: dig api.wingbits.com أو systemd-resolve --status للتحقق من الحلّ."
-      );
-    }
-
-    // NTP
-    if (isNTP){
-      add(
-        "Enable NTP and restart time sync: sudo timedatectl set-ntp true && sudo systemctl restart systemd-timesyncd.",
-        "فعّل NTP ثم أعد تشغيل مزامنة الوقت: sudo timedatectl set-ntp true && sudo systemctl restart systemd-timesyncd."
-      );
-      add(
-        "Firewalls must allow UDP/123 to public NTP servers.",
-        "تأكّد من السماح بمنفذ UDP/123 لخوادم NTP."
+    // غير ذلك: أعرض فقط النصائح الموافقة للإشارات المضبوطة
+    const tips = [];
+    if (cues.sdrMissing){
+      tips.push(
+        lang==='ar'
+          ? 'تأكد من تثبيت وتركيب دونجل RTL-SDR بإحكام. إن كان متصلًا، افصله وأعد توصيله ثم: sudo systemctl restart readsb.'
+          : 'Ensure the RTL-SDR dongle is firmly plugged. If it is, unplug/replug it, then: sudo systemctl restart readsb.',
+        lang==='ar'
+          ? 'تحقّق من الكشف: lsusb (ابحث عن RTL2832U/R820T). إن لم يظهر، جرّب منفذ/كيبل USB آخر أو موزّع مزوّد بالطاقة.'
+          : 'Verify detection: lsusb (look for RTL2832U/R820T). If missing, try a different USB port/cable or a powered hub.',
+        lang==='ar'
+          ? 'إذا استمر الفشل، قد يكون الدونجل/التعريف تالفًا — جرّب دونجل آخر أو أعد تثبيت تعريفات rtl-sdr.'
+          : 'If still failing, the dongle/driver may be faulty — try another dongle or reinstall rtl-sdr drivers.'
       );
     }
-
-    // Disk
-    if (isDisk){
-      add(
-        "Free space: sudo df -h. Clean logs: sudo journalctl --vacuum-time=7d; remove temp files under /var/tmp.",
-        "تحرير مساحة: sudo df -h. تنظيف السجلات: sudo journalctl --vacuum-time=7d؛ واحذف الملفات المؤقتة من ‎/var/tmp."
-      );
-      add(
-        "Remove unused packages: sudo apt autoremove.",
-        "أزِل الحزم غير المستخدمة: sudo apt autoremove."
+    if (cues.readsbDown){
+      tips.push(
+        lang==='ar'
+          ? 'إذا كان stats.json مفقودًا فغالبًا readsb لا يعمل أو لا يكتب في ‎/run/readsb — افحص: systemctl status readsb و journalctl -u readsb -n 100.'
+          : 'If stats.json is missing, readsb likely isn’t running or writing to /run/readsb — check: systemctl status readsb and journalctl -u readsb -n 100.'
       );
     }
-
-    // RAM
-    if (isRAM){
-      add(
-        "Check usage: free -m; close heavy apps; consider a reboot.",
-        "افحص الاستخدام: free -m؛ أغلق التطبيقات الثقيلة؛ فكّر في إعادة تشغيل الجهاز."
+    if (cues.dnsFail){
+      tips.push(
+        lang==='ar'
+          ? 'جرّب تعيين DNS احتياطي (مثل 1.1.1.1, 8.8.8.8). على systemd: حرّر ‎/etc/systemd/resolved.conf ثم استخدم resolvectl flush-caches.'
+          : 'Try setting fallback DNS (e.g., 1.1.1.1, 8.8.8.8). On systemd: edit /etc/systemd/resolved.conf then use resolvectl flush-caches.',
+        lang==='ar'
+          ? 'اختبار: dig api.wingbits.com أو systemd-resolve --status للتأكد من الحلّ.'
+          : 'Test: dig api.wingbits.com or systemd-resolve --status to verify resolution.'
       );
     }
-
-    // CPU Temp
-    if (isCPUTemp){
-      add(
-        "Improve cooling and airflow; check throttling (on Pi): vcgencmd measure_temp or /usr/bin/vcgencmd get_throttled.",
-        "حسّن التبريد وتهوية الجهاز؛ افحص التثبيط الحراري (Raspberry Pi): vcgencmd measure_temp أو ‎/usr/bin/vcgencmd get_throttled."
+    if (cues.ntpBad){
+      tips.push(
+        lang==='ar' ? 'تأكد من تزامن الوقت (NTP) — افحص systemd-timesyncd أو ntpsec.' :
+                      'Ensure time is synced (NTP) — check systemd-timesyncd or ntpsec.'
       );
     }
-
-    // SDR / readsb
-    if (isSDR || isReadsb || isReadsbFlow){
-      add(
-        "Ensure the RTL-SDR dongle is firmly plugged. If it is, unplug/replug it, then: sudo systemctl restart readsb.",
-        "تأكّد من توصيل دونجل RTL-SDR بإحكام. إن كان موصولًا، افصله وأعد توصيله ثم نفّذ: sudo systemctl restart readsb."
-      );
-      add(
-        "Verify detection: lsusb (look for RTL2832U/R820T). If missing, try a different USB port/cable or a powered hub.",
-        "تحقق من التعرف: lsusb (ابحث عن RTL2832U/R820T). إن لم يظهر، جرّب منفذ/كابل USB آخر أو موزّع USB مزوّد بالطاقة."
-      );
-      add(
-        "If still failing, the dongle/driver may be faulty — try another dongle or reinstall rtl-sdr drivers.",
-        "إن استمر الفشل فقد يكون الدونجل/التعريف تالفًا — جرّب دونجل آخر أو أعد تثبيت تعريفات rtl-sdr."
-      );
-      if (isReadsbFlow){
-        add(
-          "If stats.json is missing, readsb likely isn’t running or writing to /run/readsb — check: systemctl status readsb, and journalctl -u readsb -n 100.",
-          "إذا كان stats.json غير موجود فغالبًا readsb لا يعمل أو لا يكتب إلى ‎/run/readsb — تحقق عبر: systemctl status readsb و journalctl -u readsb -n 100."
-        );
-      }
+    if (cues.diskLow){
+      tips.push(lang==='ar' ? 'المساحة منخفضة — حرّر مساحة أو وسّع التخزين.' : 'Low disk — free up space or expand storage.');
+    }
+    if (cues.memLow){
+      tips.push(lang==='ar' ? 'الذاكرة منخفضة — أغلق البرامج الثقيلة أو زد الـswap/الرام.' : 'Low memory — close heavy apps or increase swap/RAM.');
+    }
+    if (cues.tempHigh){
+      tips.push(lang==='ar' ? 'حرارة مرتفعة — حسّن التبريد أو قلل الحمل.' : 'High temperature — improve cooling or reduce load.');
     }
 
-    // Wingbits service / connectivity
-    if (isWingbits){
-      add(
-        "Restart the service: sudo systemctl restart wingbits; then check: wingbits status.",
-        "أعد تشغيل الخدمة: sudo systemctl restart wingbits؛ ثم افحص: wingbits status."
-      );
-      add(
-        "If you see connect timeouts, verify Internet/DNS and outbound firewall to port 6004.",
-        "إذا ظهرت مهلات اتصال (timeouts)، تحقّق من الإنترنت/DNS وجدار الحماية للمنفذ 6004."
-      );
-    }
-
-    // GeoSigner
-    if (isGeoSigner){
-      if (details.includes('not linked')){
-        add(
-          "Run: wingbits geosigner link, then wingbits status to confirm it’s linked.",
-          "نفّذ: wingbits geosigner link ثم wingbits status للتأكد من الربط."
-        );
-      }
-      add(
-        "Make sure the GeoSigner USB is connected (try another port/cable); check lsusb for detection.",
-        "تأكد من توصيل GeoSigner بمنفذ USB (جرّب منفذ/كابلًا آخر)؛ وافحص lsusb للتعرف عليه."
-      );
-      add(
-        "If still not detected, the device may be faulty — contact support or replace the unit.",
-        "إذا لم يُكتشف، قد تكون القطعة معطوبة — تواصل مع الدعم أو استبدلها."
-      );
-    }
-
-    if (!bullets.length) return '';
-    const isBad = (status === 'FAIL' || status === 'WARN');
-    const color = isBad ? '#b1332b' : '#333';   // Red when FAIL/WARN
-    const titleText = (lang==='ar') ? 'الخطوات المقترحة' : 'Next steps';
-    const list = bullets.map(b => '• '+b).join('\n');
-
-    return `<div class="ts-details" style="margin-top:8px;border-top:1px dashed #e3e7ef;padding-top:8px;color:${color}">
-      <b style="color:${color}">${titleText}:</b>\n${list}
-    </div>`;
+    return tips.length ? _wb_renderNextSteps(tips, status) : '';
   }
 
-  // Insert button in Support sub-menu
+  function _wb_renderNextSteps(lines, status){
+    const color = status==='FAIL' ? '#c62828' : '#b36b00';
+    return (
+      '<div class="ts-details" style="margin-top:10px;border-top:1px dashed #e6eaf2;padding-top:10px">'
+      + `<div style="font-weight:800;color:${color};margin-bottom:6px">Next steps:</div>`
+      + '<ul style="margin:0 0 0 18px;padding:0;list-style:disc;">'
+      + lines.map(l=>`<li style="margin:4px 0">${l}</li>`).join('')
+      + '</ul></div>'
+    );
+  }
+
+  // زر “Smart Troubleshooter” في قائمة الدعم
   function addTSButton(){
     const side = document.getElementById('side-menu');
     if (!side) return;
-    // Look for a container that already holds Support sub-items
-    const buttons = side.querySelectorAll('button[data-key="support_menu"]');
-    // Avoid duplicates
-    if (side.querySelector('button[data-sub="troubleshooter"]')) return;
+    const subMenus = side.querySelectorAll('.sub-menu, div[style*="margin-left"]');
+    let container = null;
+    subMenus.forEach(div => {
+      const hasDiag = Array.from(div.querySelectorAll('button')).some(b => {
+        const t = (b.textContent || '').trim().toLowerCase();
+        return t === 'diagnostics' || t === 'تصحيح' || t === 'التشخيص' || t.includes('wingbits status');
+      });
+      if (hasDiag) container = div;
+    });
+    if (!container) return;
+    if (container.querySelector('button[data-sub="troubleshooter"]')) return;
 
     const btn = document.createElement('button');
     btn.textContent = (window.LANG === 'ar' ? 'أداة تشخيص ذكية' : 'Smart Troubleshooter');
     btn.setAttribute('data-key','support_menu');
     btn.setAttribute('data-sub','troubleshooter');
     btn.onclick = function(){ if (typeof window.renderMenuPage==='function'){ window.renderMenuPage('support_menu','troubleshooter'); } };
-    if (buttons.length) {
-      const ref = buttons[buttons.length-1];
-      ref.insertAdjacentElement('afterend', btn);
-    } else {
-      side.appendChild(btn);
-    }
+    container.insertBefore(btn, container.firstChild);
   }
 
-  // Hook into renderMenuPage
   if (typeof window.renderMenuPage === 'function') {
     const _origRenderMenuPage = window.renderMenuPage;
     window.renderMenuPage = function(key, sub, qolSub){
@@ -2466,19 +2416,18 @@ ${d.logs || "-"}
     setTimeout(addTSButton, 500);
   }
 
-  // Observe changes to re-insert button
   const side = document.getElementById('side-menu');
   if (side && typeof MutationObserver !== 'undefined'){
     const mo = new MutationObserver(() => addTSButton());
     mo.observe(side, {childList:true, subtree:true});
   }
 
-  // UI builder
+  // UI
   window.renderTroubleshooter = function(){
     const el = document.getElementById('main-content');
     if (!el) return;
-    el.innerHTML = ''
-      + '<div class="ts-top">'
+    el.innerHTML =
+      '<div class="ts-top">'
       +   '<h2>'+(window.LANG==='ar'?'أداة تشخيص ذكية':'Smart Troubleshooter')+'</h2>'
       +   '<label style="display:flex;gap:10px;align-items:center;font-weight:600">'
       +     '<input type="checkbox" id="ts-safe-fix" />'
@@ -2507,12 +2456,12 @@ ${d.logs || "-"}
         if (typeof window.renderLoginPage === 'function') window.renderLoginPage();
         return;
       }
-      const js = await res.json();
+      let js = await res.json();
       if (!js || js.ok === false){ throw new Error((js && js.msg) || 'Failed'); }
 
       let checks = (js.checks || []).map(c => ({...c, status: _wb_inferStatus(c.details, c.status)}));
 
-      // If readsb is healthy according to Wingbits detailed status, downgrade old "readsb log hints" WARN to OK
+      // لو readsb صحي، تجاهل “log hint” القديم
       try{
         const readsbHealthy = (checks || []).some(x => /wingbits detailed status/i.test(x.title||'') && /data input status:\s*ok/i.test(x.details||''));
         if (readsbHealthy){
@@ -2526,10 +2475,10 @@ ${d.logs || "-"}
         }
       }catch(_){}
 
-let overall = 'OK';
-if (checks.some(c => c.status === 'FAIL')) overall = 'FAIL';
-else if (checks.some(c => c.status === 'WARN')) overall = 'WARN';
-
+      // احسب الملخص من النتائج الفعلية فقط
+      let overall = 'OK';
+      if (checks.some(c=>c.status==='FAIL')) overall = 'FAIL';
+      else if (checks.some(c=>c.status==='WARN')) overall = 'WARN';
 
       if (summaryEl){
         summaryEl.textContent = overall==='OK'
@@ -2545,23 +2494,21 @@ else if (checks.some(c => c.status === 'WARN')) overall = 'WARN';
 
       if (resultsEl){
         resultsEl.innerHTML = checks.map(c=>{
-            const cls = c.status==='OK'?'ts-ok':(c.status==='WARN'?'ts-warn':'ts-fail');
-            let det = _wb_filterDetailsByLang(c.details||'');
-            det = (det||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-            const adviceHTML = (c.status==='OK') ? '' : _wb_advice(c, c.status);
-
-            return '<div class="ts-row '+cls+'">'
-                 +   '<div class="ts-title">'+c.title+' &nbsp; '+badge(c.status)+'</div>'
-                 +   '<div class="ts-details">'+det+'</div>'
-                 +   adviceHTML
-                 + '</div>';
-          }).join('')
-          + ((js.autofix && js.autofix.applied && js.autofix.applied.length)
-             ? ('<div class="ts-row ts-ok"><div class="ts-title">Auto-fix actions</div><div class="ts-details">'
+          const cls = c.status==='OK'?'ts-ok':(c.status==='WARN'?'ts-warn':'ts-fail');
+          let det = _wb_filterDetailsByLang(c.details||'');
+          det = (det||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          const next = _wb_buildNextSteps(c.title||'', c.details||'', c.status||'');
+          return '<div class="ts-row '+cls+'">'
+               +   '<div class="ts-title">'+c.title+' &nbsp; '+badge(c.status)+'</div>'
+               +   '<div class="ts-details">'+det+'</div>'
+               +   (next || '')
+               + '</div>';
+        }).join('')
+        + ((js.autofix && js.autofix.applied && js.autofix.applied.length)
+            ? ('<div class="ts-row ts-ok"><div class="ts-title">Auto-fix actions</div><div class="ts-details">'
                + js.autofix.applied.map(a=>'• '+a.action+'\n'+(a.result||'')).join('\n\n')
                + '</div></div>')
-             : '');
+            : '');
       }
     }catch(e){
       if (resultsEl){
