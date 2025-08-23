@@ -2351,12 +2351,14 @@ ${d.logs || "-"}
     txt.en.summary_ok = txt.en.summary_ok || "Station is running normally.";
     txt.en.summary_warn = txt.en.summary_warn || "Station is running with warnings.";
     txt.en.summary_fail = txt.en.summary_fail || "Station is NOT healthy.";
+    txt.en.next_steps = txt.en.next_steps || "Next steps";
     txt.ar.troubleshooter = txt.ar.troubleshooter || "أداة تشخيص ذكية";
     txt.ar.run_diagnostics = txt.ar.run_diagnostics || "تشغيل التشخيص";
     txt.ar.safe_fix = txt.ar.safe_fix || "تفعيل الإصلاح التلقائي الآمن";
     txt.ar.summary_ok = txt.ar.summary_ok || "المحطة تعمل بشكل طبيعي.";
     txt.ar.summary_warn = txt.ar.summary_warn || "المحطة تعمل مع تحذيرات.";
     txt.ar.summary_fail = txt.ar.summary_fail || "المحطة ليست بحالة جيدة.";
+    txt.ar.next_steps = txt.ar.next_steps || "الخطوات المقترحة";
   } catch(e) {}
 
   function _wb_inferStatus(details, status){
@@ -2370,6 +2372,8 @@ ${d.logs || "-"}
     if (t.includes('warn') || t.includes('warning')) return status === 'OK' ? 'WARN' : status;
     return status || 'OK';
   }
+
+  // Show EN only when UI is EN (hide Arabic hints) — and vice versa
   function _wb_filterDetailsByLang(text){
     try{
       const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
@@ -2384,7 +2388,7 @@ ${d.logs || "-"}
             return '';
           }
           return line;
-        } else { // ar
+        } else {
           return line;
         }
       }).filter(Boolean);
@@ -2392,33 +2396,180 @@ ${d.logs || "-"}
     }catch(e){ return text; }
   }
 
+  // Advice dictionary
+  function _wb_advice(check){
+    const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
+    const t = (s)=> (lang==='ar'? s.ar : s.en);
 
-  // Insert button inside the actual Support sub-menu container
+    const title = (check.title||'').toLowerCase();
+    const details = (check.details||'').toLowerCase();
+    const bullets = [];
+
+    const add = (en, ar) => bullets.push(lang==='ar'? ar : en);
+
+    // Patterns
+    const isInternet = title.includes('internet') || details.includes('not connected to internet');
+    const isDNS = title.includes('dns') || details.includes('dns') || details.includes('resolve');
+    const isNTP = title.includes('time sync') || details.includes('ntp') || details.includes('timesync');
+    const isDisk = title.includes('disk') || details.includes('disk');
+    const isRAM = title.includes('memory') || title.includes('ram') || details.includes('ram');
+    const isCPUTemp = title.includes('temp') || details.includes('temp') || details.includes('thermal') || details.includes('throttle');
+    const isSDR = title.includes('sdr') || details.includes('rtlsdr') || details.includes('rtl/sdr') || details.includes('no rtl') || details.includes('no supported devices');
+    const isReadsb = title.includes('readsb');
+    const isReadsbFlow = title.includes('data flow') || details.includes('stats.json not found') || details.includes('0 bytes') || details.includes('messages: 0');
+    const isWingbits = title.includes('wingbits service') || details.includes('failed connecting to wingbits');
+    const isGeoSigner = title.includes('geosigner') || details.includes('geosigner');
+
+    // Internet
+    if (isInternet){
+      add(
+        "Check network cable/Wi-Fi, then run: ping 1.1.1.1. If ping fails, reconnect to your router or reboot it.",
+        "تحقق من كابل الشبكة/الواي فاي، ثم شغّل: ping 1.1.1.1. إذا فشل، أعد الاتصال بالموجّه أو أعد تشغيله."
+      );
+      add(
+        "If your ISP/firewall blocks outbound, allow TCP 6004 and HTTPS to Wingbits domains.",
+        "إن كان الجدار الناري/مزود الخدمة يقيّد الخروج، اسمح بمنفذ TCP 6004 والـ HTTPS لِنطاقات Wingbits."
+      );
+    }
+
+    // DNS
+    if (isDNS){
+      add(
+        "Try setting fallback DNS (e.g., 1.1.1.1, 8.8.8.8). On systemd: edit /etc/systemd/resolved.conf and use resolvectl flush-caches.",
+        "جرّب تعيين DNS احتياطي (مثل 1.1.1.1 و 8.8.8.8). على systemd: حرّر ‎/etc/systemd/resolved.conf ثم نفّذ resolvectl flush-caches."
+      );
+      add(
+        "Test: dig api.wingbits.com or systemd-resolve --status to verify resolution.",
+        "اختبر: dig api.wingbits.com أو systemd-resolve --status للتحقق من الحلّ."
+      );
+    }
+
+    // NTP
+    if (isNTP){
+      add(
+        "Enable NTP and restart time sync: sudo timedatectl set-ntp true && sudo systemctl restart systemd-timesyncd.",
+        "فعّل NTP ثم أعد تشغيل مزامنة الوقت: sudo timedatectl set-ntp true && sudo systemctl restart systemd-timesyncd."
+      );
+      add(
+        "Firewalls must allow UDP/123 to public NTP servers.",
+        "تأكّد من السماح بمنفذ UDP/123 لخوادم NTP."
+      );
+    }
+
+    // Disk
+    if (isDisk){
+      add(
+        "Free space: sudo df -h. Clean logs: sudo journalctl --vacuum-time=7d; remove temp files under /var/tmp.",
+        "تحرير مساحة: sudo df -h. تنظيف السجلات: sudo journalctl --vacuum-time=7d؛ واحذف الملفات المؤقتة من ‎/var/tmp."
+      );
+      add(
+        "Remove unused packages: sudo apt autoremove.",
+        "أزِل الحزم غير المستخدمة: sudo apt autoremove."
+      );
+    }
+
+    // RAM
+    if (isRAM){
+      add(
+        "Check usage: free -m; close heavy apps; consider a reboot.",
+        "افحص الاستخدام: free -m؛ أغلق التطبيقات الثقيلة؛ فكّر في إعادة تشغيل الجهاز."
+      );
+    }
+
+    // CPU Temp
+    if (isCPUTemp){
+      add(
+        "Improve cooling and airflow; check throttling (on Pi): vcgencmd measure_temp or /usr/bin/vcgencmd get_throttled.",
+        "حسّن التبريد وتهوية الجهاز؛ افحص التثبيط الحراري (Raspberry Pi): vcgencmd measure_temp أو ‎/usr/bin/vcgencmd get_throttled."
+      );
+    }
+
+    // SDR / readsb
+    if (isSDR || isReadsb || isReadsbFlow){
+      add(
+        "Ensure the RTL-SDR dongle is firmly plugged. If it is, unplug/replug it, then: sudo systemctl restart readsb.",
+        "تأكّد من توصيل دونجل RTL-SDR بإحكام. إن كان موصولًا، افصله وأعد توصيله ثم نفّذ: sudo systemctl restart readsb."
+      );
+      add(
+        "Verify detection: lsusb (look for RTL2832U/R820T). If missing, try a different USB port/cable or a powered hub.",
+        "تحقق من التعرف: lsusb (ابحث عن RTL2832U/R820T). إن لم يظهر، جرّب منفذ/كابل USB آخر أو موزّع USB مزوّد بالطاقة."
+      );
+      add(
+        "If still failing, the dongle/driver may be faulty — try another dongle or reinstall rtl-sdr drivers.",
+        "إن استمر الفشل فقد يكون الدونجل/التعريف تالفًا — جرّب دونجل آخر أو أعد تثبيت تعريفات rtl-sdr."
+      );
+      if (isReadsbFlow){
+        add(
+          "If stats.json is missing, readsb likely isn’t running or writing to /run/readsb — check: systemctl status readsb, and journalctl -u readsb -n 100.",
+          "إذا كان stats.json غير موجود فغالبًا readsb لا يعمل أو لا يكتب إلى ‎/run/readsb — تحقق عبر: systemctl status readsb و journalctl -u readsb -n 100."
+        );
+      }
+    }
+
+    // Wingbits service / connectivity
+    if (isWingbits){
+      add(
+        "Restart the service: sudo systemctl restart wingbits; then check: wingbits status.",
+        "أعد تشغيل الخدمة: sudo systemctl restart wingbits؛ ثم افحص: wingbits status."
+      );
+      add(
+        "If you see connect timeouts, verify Internet/DNS and outbound firewall to port 6004.",
+        "إذا ظهرت مهلات اتصال (timeouts)، تحقّق من الإنترنت/DNS وجدار الحماية للمنفذ 6004."
+      );
+    }
+
+    // GeoSigner
+    if (isGeoSigner){
+      if (details.includes('not linked')){
+        add(
+          "Run: wingbits geosigner link, then wingbits status to confirm it’s linked.",
+          "نفّذ: wingbits geosigner link ثم wingbits status للتأكد من الربط."
+        );
+      }
+      add(
+        "Make sure the GeoSigner USB is connected (try another port/cable); check lsusb for detection.",
+        "تأكد من توصيل GeoSigner بمنفذ USB (جرّب منفذ/كابلًا آخر)؛ وافحص lsusb للتعرف عليه."
+      );
+      add(
+        "If still not detected, the device may be faulty — contact support or replace the unit.",
+        "إذا لم يُكتشف، قد تكون القطعة معطوبة — تواصل مع الدعم أو استبدلها."
+      );
+    }
+
+    if (!bullets.length) return '';
+    const titleText = (lang==='ar') ? 'الخطوات المقترحة' : 'Next steps';
+    const list = bullets.map(b => '• '+b).join('\n');
+    return `<div class="ts-details" style="margin-top:8px; border-top:1px dashed #e3e7ef; padding-top:8px;">
+      <b>${titleText}:</b>\n${list}
+    </div>`;
+  }
+
+  // Insert button in Support sub-menu
   function addTSButton(){
     const side = document.getElementById('side-menu');
     if (!side) return;
-    const subMenus = side.querySelectorAll('.sub-menu');
-    let container = null;
-    subMenus.forEach(div => {
-      const hasDiag = Array.from(div.querySelectorAll('button')).some(b => {
-        const t = (b.textContent || '').trim().toLowerCase();
-        return t === 'diagnostics' || t === 'تصحيح' || t === 'التشخيص' || t.includes('wingbits status');
-      });
-      if (hasDiag) container = div;
-    });
-    if (!container) return;
-
-    if (container.querySelector('button[data-sub="troubleshooter"]')) return;
+    // Look for a container that already holds Support sub-items
+    const buttons = side.querySelectorAll('button[data-key="support_menu"]');
+    // If Support is active, sub-buttons are rendered after it (in the same column)
+    let parent = side;
+    // Avoid duplicates
+    if (side.querySelector('button[data-sub="troubleshooter"]')) return;
 
     const btn = document.createElement('button');
     btn.textContent = (window.LANG === 'ar' ? 'أداة تشخيص ذكية' : 'Smart Troubleshooter');
     btn.setAttribute('data-key','support_menu');
     btn.setAttribute('data-sub','troubleshooter');
     btn.onclick = function(){ if (typeof window.renderMenuPage==='function'){ window.renderMenuPage('support_menu','troubleshooter'); } };
-    container.insertBefore(btn, container.firstChild);
+    // Place at top of the support sub-items if possible; else append to side
+    if (buttons.length) {
+      const ref = buttons[buttons.length-1];
+      ref.insertAdjacentElement('afterend', btn);
+    } else {
+      parent.appendChild(btn);
+    }
   }
 
-  // Wrap renderMenuPage to handle route
+  // Hook into renderMenuPage
   if (typeof window.renderMenuPage === 'function') {
     const _origRenderMenuPage = window.renderMenuPage;
     window.renderMenuPage = function(key, sub, qolSub){
@@ -2433,7 +2584,7 @@ ${d.logs || "-"}
     setTimeout(addTSButton, 500);
   }
 
-  // Observe changes to side-menu to re-insert when Support expands
+  // Observe changes to re-insert button
   const side = document.getElementById('side-menu');
   if (side && typeof MutationObserver !== 'undefined'){
     const mo = new MutationObserver(() => addTSButton());
@@ -2447,15 +2598,10 @@ ${d.logs || "-"}
     el.innerHTML = ''
       + '<div class="ts-top">'
       +   '<h2>'+(window.LANG==='ar'?'أداة تشخيص ذكية':'Smart Troubleshooter')+'</h2>'
-      +   '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">'
-      +     '<label style="display:flex;gap:10px;align-items:center;font-weight:600">'
-      +       '<input type="checkbox" id="ts-safe-fix" />'
-      +       (window.LANG==='ar'?'تفعيل الإصلاح التلقائي الآمن':'Enable safe auto-fix')
-      +     '</label>'
-      +     '<div style="font-size:.92em;color:#5c5c5c;max-width:560px;text-align:'+ (window.LANG==='ar'?'right':'left') +'">'
-      +       (window.LANG==='ar'? txt.ar.safe_fix_help : txt.en.safe_fix_help)
-      +     '</div>'
-      +   '</div>'
+      +   '<label style="display:flex;gap:10px;align-items:center;font-weight:600">'
+      +     '<input type="checkbox" id="ts-safe-fix" />'
+      +     (window.LANG==='ar'?'تفعيل الإصلاح التلقائي الآمن':'Enable safe auto-fix')
+      +   '</label>'
       + '</div>'
       + '<button class="action" onclick="runTroubleshooter()">'+(window.LANG==='ar'?'تشغيل التشخيص':'Run diagnostics')+'</button>'
       + '<div id="ts-summary" style="margin:14px 0;font-weight:700;"></div>'
@@ -2481,7 +2627,10 @@ ${d.logs || "-"}
       }
       const js = await res.json();
       if (!js || js.ok === false){ throw new Error((js && js.msg) || 'Failed'); }
+
       let checks = (js.checks || []).map(c => ({...c, status: _wb_inferStatus(c.details, c.status)}));
+
+      // If readsb is healthy according to Wingbits detailed status, downgrade old "readsb log hints" WARN to OK
       try{
         const readsbHealthy = (checks || []).some(x => /wingbits detailed status/i.test(x.title||'') && /data input status:\s*ok/i.test(x.details||''));
         if (readsbHealthy){
@@ -2494,6 +2643,7 @@ ${d.logs || "-"}
           });
         }
       }catch(_){}
+
       let overall = (js.summary && js.summary.overall) || 'OK';
       if (checks.some(c=>c.status==='FAIL')) overall = 'FAIL';
       else if (checks.some(c=>c.status==='WARN')) overall = 'WARN';
@@ -2505,17 +2655,23 @@ ${d.logs || "-"}
             ? (window.LANG==='ar'?'المحطة تعمل مع تحذيرات.':'Station is running with warnings.')
             : (window.LANG==='ar'?'المحطة ليست بحالة جيدة.':'Station is NOT healthy.'));
       }
+
       const badge = (state)=> state==='OK' ? '<span class="ts-badge ok">OK</span>'
                             : state==='WARN' ? '<span class="ts-badge warn">WARN</span>'
                             : '<span class="ts-badge fail">FAIL</span>';
+
       if (resultsEl){
         resultsEl.innerHTML = checks.map(c=>{
             const cls = c.status==='OK'?'ts-ok':(c.status==='WARN'?'ts-warn':'ts-fail');
             let det = _wb_filterDetailsByLang(c.details||'');
             det = (det||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+            const adviceHTML = (c.status==='OK') ? '' : _wb_advice(c);
+
             return '<div class="ts-row '+cls+'">'
                  +   '<div class="ts-title">'+c.title+' &nbsp; '+badge(c.status)+'</div>'
                  +   '<div class="ts-details">'+det+'</div>'
+                 +   adviceHTML
                  + '</div>';
           }).join('')
           + ((js.autofix && js.autofix.applied && js.autofix.applied.length)
@@ -2534,6 +2690,7 @@ ${d.logs || "-"}
   };
 })();
 </script>
+
 
 </body>
 </html>
