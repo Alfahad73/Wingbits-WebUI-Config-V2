@@ -349,31 +349,23 @@ body.rtl .diagnostics-section {
     font-weight: bold;
 }
 
-/* ===== Smart Troubleshooter (added) ===== */
-.ts-top{display:flex;justify-content:space-between;align-items:center;margin:6px 0 14px}
-.ts-row{background:#fff;border:1px solid #eef2f8;border-left:6px solid #d0d7e1;border-radius:10px;padding:10px 12px;margin:8px 0}
-.ts-ok{border-left-color:#27ae60}
-.ts-warn{border-left-color:#f39c12}
-.ts-fail{border-left-color:#e74c3c}
-.ts-title{font-weight:700;color:#1a2940;margin-bottom:6px}
-.ts-details{font-family:monospace;white-space:pre-wrap;color:#333}
-.ts-badge{padding:3px 8px;border-radius:8px;font-weight:700;font-size:.92em}
-.ok{background:#eaf9ee;color:#1c7c3c}
-.warn{background:#fff7e8;color:#a86a08}
-.fail{background:#ffecec;color:#b1332b}
-
-/* ===== Global update banner ===== */
-#global-update-banner{position:fixed;top:12px;right:12px;z-index:9999;background:#fff7e6;border:1px solid #ffda9c;color:#8a4b00;border-radius:12px;padding:10px 12px;box-shadow:0 6px 24px #0002;display:none;max-width:460px}
-#global-update-banner .title{font-weight:800;margin-bottom:6px}
-#global-update-banner .actions{display:flex;gap:8px;margin-top:8px}
-#global-update-banner button{width:auto}
-body.rtl #global-update-banner{right:auto;left:12px}
+  /* ===== Smart Troubleshooter (added) ===== */
+  .ts-top{display:flex;justify-content:space-between;align-items:center;margin:6px 0 14px}
+  .ts-row{background:#fff;border:1px solid #eef2f8;border-left:6px solid #d0d7e1;border-radius:10px;padding:10px 12px;margin:8px 0}
+  .ts-ok{border-left-color:#27ae60}
+  .ts-warn{border-left-color:#f39c12}
+  .ts-fail{border-left-color:#e74c3c}
+  .ts-title{font-weight:700;color:#1a2940;margin-bottom:6px}
+  .ts-details{font-family:monospace;white-space:pre-wrap;color:#333}
+  .ts-badge{padding:3px 8px;border-radius:8px;font-weight:700;font-size:.92em}
+  .ok{background:#eaf9ee;color:#1c7c3c}
+  .warn{background:#fff7e8;color:#a86a08}
+  .fail{background:#ffecec;color:#b1332b}
 
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <div id="global-update-banner"></div>
   <div class="container" id="container">
     <div class="sidebar" id="sidebar">
       <img class="logo" src="https://wingbits.com/apple-icon.png?34e8dd62bf865c3e" alt="Wingbits" />
@@ -392,9 +384,6 @@ body.rtl #global-update-banner{right:auto;left:12px}
   </div>
 
   <script>
-    // --------- Panel version (for auto-update check) ----------
-    const PANEL_VERSION = "2.0.0";
-
     // --------- Interface text translation ----------
     const txt = {
       en: {
@@ -477,20 +466,7 @@ body.rtl #global-update-banner{right:auto;left:12px}
         view_wingbits_status_verbose: "View Wingbits Detailed Status",
         view_geosigner_info: "View GeoSigner Info",
         copy_link: "Copy Link",
-        copied: "Copied!",
-
-        // Update banner UI
-        update_available_title: "New Web Panel version available",
-        update_available_body: (local, remote) => `You're on v${local}, latest is v${remote}.`,
-        update_now: "Update now",
-        remind_later: "Remind me later",
-        up_to_date: "Your Web Panel is up to date.",
-        updating_panel: "Updating Web Panel...",
-        update_done: "Web Panel updated. Reloading...",
-        update_failed_short: "Panel update failed.",
-
-        // Smart Troubleshooter additions
-        safe_fix_help: "When enabled, Troubleshooter will restart failing services (readsb/wingbits/tar1090/graphs1090), attempt safe driver refreshes where applicable, then tell you what was fixed and what wasn’t, with clear guidance for anything not auto-fixed."
+        copied: "Copied!"
       },
       ar: {
         main_title: "إعداد محطة Wingbits عبر الويب",
@@ -551,7 +527,7 @@ body.rtl #global-update-banner{right:auto;left:12px}
         wb_config_install_needed: "wb-config غير مثبت. يرجى تثبيته يدويًا عن طريق تشغيل: curl -sL https://gitlab.com/wingbits/config/-/raw/master/wb-config/install.sh | sudo bash",
         return_to_normal_gain: "العودة لخيارات Gain العادية",
         confirm_update_client: "هل أنت متأكد أنك تريد تحديث عميل Wingbits؟",
-        update_in_progress: "يوجد تحديث قيد التنفيذ بالفعل.",
+        update_in_progress: "تحديث قيد التقدم بالفعل.",
         update_started: "بدأ تحديث عميل Wingbits. جاري التحقق من التقدم...",
         update_finished: "اكتمل تحديث عميل Wingbits.",
         update_failed: "فشل تحديث عميل Wingbits.",
@@ -572,20 +548,7 @@ body.rtl #global-update-banner{right:auto;left:12px}
         view_wingbits_status_verbose: "عرض حالة Wingbits التفصيلية",
         view_geosigner_info: "عرض معلومات GeoSigner",
         copy_link: "نسخ الرابط",
-        copied: "تم النسخ!",
-
-        // Update banner UI
-        update_available_title: "تحديث جديد متوفر للوحة الويب",
-        update_available_body: (local, remote) => `نسختك الحالية v${local}، وآخر نسخة v${remote}.`,
-        update_now: "حدّث الآن",
-        remind_later: "ذكّرني لاحقًا",
-        up_to_date: "اللوحة مُحدّثة لأحدث إصدار.",
-        updating_panel: "جاري تحديث لوحة الويب...",
-        update_done: "تم تحديث اللوحة. سيتم إعادة التحميل...",
-        update_failed_short: "فشل تحديث اللوحة.",
-
-        // Smart Troubleshooter additions
-        safe_fix_help: "عند تفعيله سيحاول المشخّص إعادة تشغيل الخدمات التي بها أعطال (readsb/wingbits/tar1090/graphs1090) وتنفيذ تحديثات آمنة للتعريفات عند الإمكان، ثم يوضح لك ما تم إصلاحه وما لم يتم إصلاحه مع إرشادات واضحة لمعالجة المشاكل غير المُصلحة تلقائيًا."
+        copied: "تم النسخ!"
       }
     };
 
@@ -597,91 +560,6 @@ body.rtl #global-update-banner{right:auto;left:12px}
     let liveStatsHistory = [];
     let liveTimer = null;
     let updateLogTimer = null; // Global timer for update logs polling
-
-    // ===== Auto-update check helpers =====
-    function ensureGlobalUpdateBanner(){
-      let el = document.getElementById('global-update-banner');
-      if(!el){
-        el = document.createElement('div');
-        el.id = 'global-update-banner';
-        document.body.appendChild(el);
-      }
-      return el;
-    }
-    function semverCompare(a,b){
-      const pa = (a||'0').replace(/^v/,'').split('.').map(x=>parseInt(x,10)||0);
-      const pb = (b||'0').replace(/^v/,'').split('.').map(x=>parseInt(x,10)||0);
-      for(let i=0;i<Math.max(pa.length,pb.length);i++){
-        const da = pa[i]||0, db = pb[i]||0;
-        if(da>db) return 1;
-        if(da<db) return -1;
-      }
-      return 0;
-    }
-    async function fetchLocalPanelVersion(){
-      try{
-        const r = await fetch('/api/panel/version', {headers: AUTH_TOKEN?{'X-Auth-Token':AUTH_TOKEN}:{}} );
-        if(r.ok){ const j = await r.json(); if(j && j.version) return (''+j.version).replace(/^v/,''); }
-      }catch(e){}
-      return PANEL_VERSION;
-    }
-    async function fetchRemotePanelVersion(){
-      try{
-        const r = await fetch('https://raw.githubusercontent.com/Alfahad73/Wingbits-WebUI-Config-V2/master/panel-version.txt', {cache:'no-store'});
-        if(!r.ok) return null;
-        const t = (await r.text()).trim();
-        return t.replace(/^v/,'');
-      }catch(e){ return null; }
-    }
-    function hideUpdateBanner(){
-      const el = ensureGlobalUpdateBanner();
-      el.style.display = 'none';
-      el.innerHTML = '';
-    }
-    function showUpdateBanner(localV, remoteV){
-      const el = ensureGlobalUpdateBanner();
-      const bodyText = txt[LANG].update_available_body(localV, remoteV);
-      el.innerHTML = `
-        <div class="title">${txt[LANG].update_available_title}</div>
-        <div>${bodyText}</div>
-        <div class="actions">
-          <button class="action" onclick="updatePanelNow('${remoteV}')">${txt[LANG].update_now}</button>
-          <button class="action" onclick="snoozeUpdate('${remoteV}')">${txt[LANG].remind_later}</button>
-        </div>
-      `;
-      el.style.display = 'block';
-    }
-    function snoozeUpdate(ver){
-      localStorage.setItem('wb_ignore_version', ver);
-      hideUpdateBanner();
-    }
-    async function updatePanelNow(ver){
-      const el = ensureGlobalUpdateBanner();
-      el.innerHTML = `<div class="title">${txt[LANG].updating_panel}</div>`;
-      try{
-        const js = await callAPI('/api/update/reinstall','POST',{components:['panel']}, null, true);
-        if(js && js.ok){
-          el.innerHTML = `<div class="title" style="color:#0a7a2e">${txt[LANG].update_done}</div>`;
-          setTimeout(()=> location.reload(), 1200);
-        }else{
-          el.innerHTML = `<div class="title" style="color:#b80c09">${txt[LANG].update_failed_short}</div>`;
-        }
-      }catch(e){
-        el.innerHTML = `<div class="title" style="color:#b80c09">${txt[LANG].update_failed_short}</div>`;
-      }
-    }
-    async function checkForUpdates(){
-      // respect snooze
-      const ignored = localStorage.getItem('wb_ignore_version');
-      const [localV, remoteV] = await Promise.all([fetchLocalPanelVersion(), fetchRemotePanelVersion()]);
-      if(!remoteV){ hideUpdateBanner(); return; }
-      if(ignored && ignored === remoteV){ hideUpdateBanner(); return; }
-      if(semverCompare(remoteV, localV) > 0){
-        showUpdateBanner(localV, remoteV);
-      }else{
-        hideUpdateBanner();
-      }
-    }
 
     // --- Language Settings ---
     function setLang(l) {
@@ -714,9 +592,6 @@ body.rtl #global-update-banner{right:auto;left:12px}
       if (document.getElementById('login-container') === null && document.getElementById('main-content')) {
         renderMenuPage(currentKey, currentSub, currentQolSub);
       }
-
-      // Update banner language if visible
-      checkForUpdates();
     }
 
     // --- Sidebar Menu Control ---
@@ -755,8 +630,8 @@ body.rtl #global-update-banner{right:auto;left:12px}
         if (mainMenu[i].key === 'support_menu' && activeKey === 'support_menu') {
           menu += `
             <div style="margin-left:18px;">
-              <button class="${supportSub==='troubleshooter'?'active':''}" data-key="support_menu" data-sub="troubleshooter" onclick="renderMenuPage('support_menu','troubleshooter')">${(LANG === 'ar' ? 'أداة تشخيص ذكية' : 'Smart Troubleshooter')}</button>
-              <button class="${supportSub==='debug'?'active':''}" data-key="support_menu" data-sub="debug" onclick="renderMenuPage('support_menu','debug')">${LANG === 'ar' ? 'تصحيح' : 'Debug'}</button>
+                            <button class="${supportSub==='troubleshooter'?'active':''}" data-key="support_menu" data-sub="troubleshooter" onclick="renderMenuPage('support_menu','troubleshooter')">${(LANG === 'ar' ? 'أداة تشخيص ذكية' : 'Smart Troubleshooter')}</button>
+<button class="${supportSub==='debug'?'active':''}" data-key="support_menu" data-sub="debug" onclick="renderMenuPage('support_menu','debug')">${LANG === 'ar' ? 'تصحيح' : 'Debug'}</button>
               <button class="${supportSub==='diagnostics'?'active':''}" data-key="support_menu" data-sub="diagnostics" onclick="renderMenuPage('support_menu','diagnostics')">${txt[LANG].diagnostics}</button>
               <button class="${supportSub==='wingbits_status'?'active':''}" data-key="support_menu" data-sub="wingbits_status" onclick="renderMenuPage('support_menu','wingbits_status')">${LANG === 'ar' ? 'حالة wingbits' : 'wingbits status'}</button>
               <button class="${supportSub==='readsb_status'?'active':''}" data-key="support_menu" data-sub="readsb_status" onclick="renderMenuPage('support_menu','readsb_status')">${LANG === 'ar' ? 'حالة readsb' : 'readsb status'}</button>
@@ -1108,6 +983,8 @@ body.rtl #global-update-banner{right:auto;left:12px}
             <label for="gain-select" class="label">${LANG === "ar" ? "اختر قيمة الكسب" : "Select Gain Value"}</label>
             <select id="gain-select" onchange="setGainFromDropdown()">
                 ${GAIN_OPTIONS.map(option => {
+                    // If the option is "auto" or "auto-verbose", display it without "db"
+                    // Otherwise, append "db" to the option value
                     return `<option value="${option}">${option.includes("auto") ? option : option + "db"}</option>`;
                 }).join('')}
             </select>
@@ -1369,6 +1246,7 @@ body.rtl #global-update-banner{right:auto;left:12px}
           if (response.status === 'finished' || response.status === 'not_started') {
             stopUpdatePolling();
             if (statusMessageEl) {
+                // Simple check for failure based on log content (can be improved)
                 if (response.logs.includes("error") || response.logs.includes("failed") || response.logs.includes("Error:") || response.logs.includes("Failed")) { 
                     statusMessageEl.style.color = 'red';
                     statusMessageEl.innerText = txt[LANG].update_failed;
@@ -1847,6 +1725,7 @@ ${d.logs || "-"}
             input.select();
             input.setSelectionRange(0, 99999); // For mobile devices
             try {
+                // Use the modern clipboard API if available, with a fallback
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     navigator.clipboard.writeText(input.value);
                 } else {
@@ -2302,9 +2181,6 @@ ${d.logs || "-"}
 
             setLang(LANG); // Re-render menu with correct language
             renderMenuPage('live_stats'); // Render default page after login
-
-            // Check for updates after login
-            checkForUpdates();
         } catch (error) {
             console.error('Authentication check failed:', error);
             // If network error or other issue, revert to login page
@@ -2396,15 +2272,12 @@ ${d.logs || "-"}
     }catch(e){ return text; }
   }
 
-  // Advice dictionary
-  function _wb_advice(check){
+  // Advice dictionary (now colors red on FAIL/WARN)
+  function _wb_advice(check, status){
     const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
-    const t = (s)=> (lang==='ar'? s.ar : s.en);
-
     const title = (check.title||'').toLowerCase();
     const details = (check.details||'').toLowerCase();
     const bullets = [];
-
     const add = (en, ar) => bullets.push(lang==='ar'? ar : en);
 
     // Patterns
@@ -2537,10 +2410,13 @@ ${d.logs || "-"}
     }
 
     if (!bullets.length) return '';
+    const isBad = (status === 'FAIL' || status === 'WARN');
+    const color = isBad ? '#b1332b' : '#333';   // Red when FAIL/WARN
     const titleText = (lang==='ar') ? 'الخطوات المقترحة' : 'Next steps';
     const list = bullets.map(b => '• '+b).join('\n');
-    return `<div class="ts-details" style="margin-top:8px; border-top:1px dashed #e3e7ef; padding-top:8px;">
-      <b>${titleText}:</b>\n${list}
+
+    return `<div class="ts-details" style="margin-top:8px;border-top:1px dashed #e3e7ef;padding-top:8px;color:${color}">
+      <b style="color:${color}">${titleText}:</b>\n${list}
     </div>`;
   }
 
@@ -2550,8 +2426,6 @@ ${d.logs || "-"}
     if (!side) return;
     // Look for a container that already holds Support sub-items
     const buttons = side.querySelectorAll('button[data-key="support_menu"]');
-    // If Support is active, sub-buttons are rendered after it (in the same column)
-    let parent = side;
     // Avoid duplicates
     if (side.querySelector('button[data-sub="troubleshooter"]')) return;
 
@@ -2560,12 +2434,11 @@ ${d.logs || "-"}
     btn.setAttribute('data-key','support_menu');
     btn.setAttribute('data-sub','troubleshooter');
     btn.onclick = function(){ if (typeof window.renderMenuPage==='function'){ window.renderMenuPage('support_menu','troubleshooter'); } };
-    // Place at top of the support sub-items if possible; else append to side
     if (buttons.length) {
       const ref = buttons[buttons.length-1];
       ref.insertAdjacentElement('afterend', btn);
     } else {
-      parent.appendChild(btn);
+      side.appendChild(btn);
     }
   }
 
@@ -2666,7 +2539,7 @@ ${d.logs || "-"}
             let det = _wb_filterDetailsByLang(c.details||'');
             det = (det||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-            const adviceHTML = (c.status==='OK') ? '' : _wb_advice(c);
+            const adviceHTML = (c.status==='OK') ? '' : _wb_advice(c, c.status);
 
             return '<div class="ts-row '+cls+'">'
                  +   '<div class="ts-title">'+c.title+' &nbsp; '+badge(c.status)+'</div>'
@@ -2690,7 +2563,6 @@ ${d.logs || "-"}
   };
 })();
 </script>
-
 
 </body>
 </html>
