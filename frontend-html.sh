@@ -349,7 +349,7 @@ body.rtl .diagnostics-section {
     font-weight: bold;
 }
 
-  /* ===== Smart Troubleshooter (added) ===== */
+  /* ===== Smart Troubleshooter (UI styles) ===== */
   .ts-top{display:flex;justify-content:space-between;align-items:center;margin:6px 0 14px}
   .ts-row{background:#fff;border:1px solid #eef2f8;border-left:6px solid #d0d7e1;border-radius:10px;padding:10px 12px;margin:8px 0}
   .ts-ok{border-left-color:#27ae60}
@@ -466,7 +466,20 @@ body.rtl .diagnostics-section {
         view_wingbits_status_verbose: "View Wingbits Detailed Status",
         view_geosigner_info: "View GeoSigner Info",
         copy_link: "Copy Link",
-        copied: "Copied!"
+        copied: "Copied!",
+
+        /* Updates (new) */
+        updates: "Updates",
+        check_updates: "Check for Updates",
+        updates_panel_title: "Panel & Wingbits Updates",
+        current_version: "Current version",
+        latest_version: "Latest available",
+        update_available: "Update available",
+        panel_up_to_date: "Panel is up-to-date.",
+        wingbits_up_to_date: "Wingbits Client is up-to-date.",
+        unknown: "Unknown",
+        update_panel_now: "Update Panel",
+        update_wingbits_now: "Update Wingbits Client",
       },
       ar: {
         main_title: "إعداد محطة Wingbits عبر الويب",
@@ -548,7 +561,20 @@ body.rtl .diagnostics-section {
         view_wingbits_status_verbose: "عرض حالة Wingbits التفصيلية",
         view_geosigner_info: "عرض معلومات GeoSigner",
         copy_link: "نسخ الرابط",
-        copied: "تم النسخ!"
+        copied: "تم النسخ!",
+
+        /* Updates (new) */
+        updates: "التحديثات",
+        check_updates: "فحص التحديثات",
+        updates_panel_title: "تحديثات اللوحة وعميل Wingbits",
+        current_version: "الإصدار الحالي",
+        latest_version: "أحدث إصدار متاح",
+        update_available: "يتوفر تحديث",
+        panel_up_to_date: "سكربت اللوحة مُحدّث.",
+        wingbits_up_to_date: "عميل Wingbits مُحدّث.",
+        unknown: "غير معروف",
+        update_panel_now: "تحديث اللوحة",
+        update_wingbits_now: "تحديث عميل Wingbits",
       }
     };
 
@@ -574,12 +600,12 @@ body.rtl .diagnostics-section {
       if (arBtn) arBtn.classList.toggle("active", l === "ar");
       
       const sideTitle = document.getElementById("side-title");
-      if (sideTitle) { // Check if element exists before accessing
+      if (sideTitle) {
         sideTitle.innerText = txt[LANG].main_title;
       }
       
       const logoutBtn = document.getElementById("logout-btn");
-      if (logoutBtn) { // Check if element exists before accessing
+      if (logoutBtn) {
         logoutBtn.innerText = txt[LANG].logout;
       }
       
@@ -611,7 +637,7 @@ body.rtl .diagnostics-section {
       for (let i = 0; i < mainMenu.length; ++i) {
         let isActive = (mainMenu[i].key === activeKey) ? "active" : "";
         
-        // Handle external links
+        // External links
         if (mainMenu[i].isExternalLink) {
             menu += `<button class="${isActive}" data-key="${mainMenu[i].key}" onclick="window.open('${mainMenu[i].url}', '_blank')">${mainMenu[i].label}</button>`;
         } else {
@@ -630,21 +656,24 @@ body.rtl .diagnostics-section {
         if (mainMenu[i].key === 'support_menu' && activeKey === 'support_menu') {
           menu += `
             <div style="margin-left:18px;">
-                            <button class="${supportSub==='troubleshooter'?'active':''}" data-key="support_menu" data-sub="troubleshooter" onclick="renderMenuPage('support_menu','troubleshooter')">${(LANG === 'ar' ? 'أداة تشخيص ذكية' : 'Smart Troubleshooter')}</button>
-<button class="${supportSub==='debug'?'active':''}" data-key="support_menu" data-sub="debug" onclick="renderMenuPage('support_menu','debug')">${LANG === 'ar' ? 'تصحيح' : 'Debug'}</button>
+              <button class="${supportSub==='troubleshooter'?'active':''}" data-key="support_menu" data-sub="troubleshooter" onclick="renderMenuPage('support_menu','troubleshooter')">${(LANG === 'ar' ? 'أداة تشخيص ذكية' : 'Smart Troubleshooter')}</button>
+              <button class="${supportSub==='debug'?'active':''}" data-key="support_menu" data-sub="debug" onclick="renderMenuPage('support_menu','debug')">${LANG === 'ar' ? 'تصحيح' : 'Debug'}</button>
               <button class="${supportSub==='diagnostics'?'active':''}" data-key="support_menu" data-sub="diagnostics" onclick="renderMenuPage('support_menu','diagnostics')">${txt[LANG].diagnostics}</button>
               <button class="${supportSub==='wingbits_status'?'active':''}" data-key="support_menu" data-sub="wingbits_status" onclick="renderMenuPage('support_menu','wingbits_status')">${LANG === 'ar' ? 'حالة wingbits' : 'wingbits status'}</button>
               <button class="${supportSub==='readsb_status'?'active':''}" data-key="support_menu" data-sub="readsb_status" onclick="renderMenuPage('support_menu','readsb_status')">${LANG === 'ar' ? 'حالة readsb' : 'readsb status'}</button>
               <button class="${supportSub==='wingbits_logs'?'active':''}" data-key="support_menu" data-sub="wingbits_logs" onclick="renderMenuPage('support_menu','wingbits_logs')">${LANG === 'ar' ? 'سجلات wingbits' : 'wingbits logs'}</button>
               <button class="${supportSub==='readsb_logs'?'active':''}" data-key="support_menu" data-sub="readsb_logs" onclick="renderMenuPage('support_menu','readsb_logs')">${LANG === 'ar' ? 'سجلات readsb' : 'readsb logs'}</button>
               <button class="${supportSub==='all_logs'?'active':''}" data-key="support_menu" data-sub="all_logs" onclick="renderMenuPage('support_menu','all_logs')">${LANG === 'ar' ? 'جميع السجلات الحديثة' : 'All recent logs'}</button>
-              <!-- <button class="${supportSub==='last_install_log'?'active':''}" data-key="support_menu" data-sub="last_install_log" onclick="renderMenuPage('support_menu','last_install_log')">${LANG === 'ar' ? 'سجل التثبيت الأخير' : 'Last install log'}</button> -->
+
+              <!-- NEW: Updates (Check for Updates) -->
+              <button class="${supportSub==='updates'?'active':''}" data-key="support_menu" data-sub="updates" onclick="renderMenuPage('support_menu','updates')">${txt[LANG].check_updates}</button>
+
+              <!-- Existing: Update Client (logs modal/polling) -->
               <button class="${supportSub==='update_client'?'active':''}" data-key="support_menu" data-sub="update_client" onclick="confirmUpdateClient()">${LANG === 'ar' ? 'تحديث العميل' : 'Update Client'}</button>
             </div>
           `;
         }
       }
-      // Ensure side-menu element exists before setting innerHTML
       const sideMenu = document.getElementById("side-menu");
       if (sideMenu) {
         sideMenu.innerHTML = menu;
@@ -668,18 +697,17 @@ body.rtl .diagnostics-section {
         return;
       }
 
-      // If the key is 'wingbits_metrics', it's an external link, so we don't render a page.
-      // The onclick handler in renderMenu already opens the new tab.
+      // External link info
       if (key === 'wingbits_metrics') {
           mainContent.innerHTML = `<h2>${LANG === "ar" ? "مقاييس Wingbits" : "Wingbits Metrics"}</h2>
                                    <p>${LANG === "ar" ? "سيتم فتح صفحة المقاييس في تبويب جديد." : "The metrics page will open in a new tab."}</p>`;
-          renderMenu(key); // Still highlight the menu item
+          renderMenu(key); // highlight the menu item
           return;
       }
 
-
       if (key === 'support_menu') {
         renderMenu('support_menu', sub, qolSub);
+        if (sub === 'updates') return renderUpdatesPage();     // NEW
         if (sub === 'debug') return renderDebug();
         if (sub === 'diagnostics') return renderDiagnosticsPage();
         if (sub === 'wingbits_status') return callAPI('/api/service/wingbits/status', 'GET', null, 'main-content');
@@ -688,8 +716,6 @@ body.rtl .diagnostics-section {
         if (sub === 'readsb_logs') return callAPI('/api/service/readsb/logs', 'GET', null, 'main-content');
         if (sub === 'all_logs') return renderAllLogs();
         if (sub === 'last_install_log') return renderLastInstallLog();
-        // The call to update_client is now handled by confirmUpdateClient()
-        // if (sub === 'update_client') return callAPI('/api/service/wingbits/update-client', 'POST', null, 'main-content');
         mainContent.innerHTML = `<h2>${LANG === "ar" ? "يرجى اختيار خيار فرعي..." : "Please select a Support sub-option..."}</h2>`;
         return;
       }
@@ -700,20 +726,20 @@ body.rtl .diagnostics-section {
         if (qolSub === 'graphs_colorscheme') return renderGraphsColorscheme();
         if (qolSub === 'tar_routes') return renderTarRoutes();
         if (qolSub === 'tar_heatmaps') return renderTarHeatmaps();
-        mainContent.innerHTML = `<h2>Please select sub-option</h2>`; // Default for QOL if no sub-option selected
+        mainContent.innerHTML = `<h2>Please select sub-option</h2>`;
         return;
       }
       if (key === 'urls') return renderURLs();
       if (key === 'restart') return renderPower();
-      if (key === 'change_password') return renderChangePasswordPage(); // New page for password change
+      if (key === 'change_password') return renderChangePasswordPage();
       if (key === 'help') return renderHelp();
-      mainContent.innerHTML = `<h2>Please select sub-option</h2>`; // Default for other top-level menu items
+      mainContent.innerHTML = `<h2>Please select sub-option</h2>`;
     }
 
     // --- Live Stats / Dashboard Functions ---
     function renderLiveStats() {
       const mainContent = document.getElementById("main-content");
-      if (!mainContent) return; // Defensive check
+      if (!mainContent) return;
 
       mainContent.innerHTML = `
         <h2>${LANG === "ar" ? "لوحة مراقبة المحطة" : "Station Dashboard"}</h2>
@@ -730,7 +756,6 @@ body.rtl .diagnostics-section {
     }
 
     function switchTab(tab) {
-      // Ensure elements exist before toggling classes
       const tabbtnLive = document.getElementById("tabbtn_live");
       const tabbtnTools = document.getElementById("tabbtn_tools");
       const tabbtnAlerts = document.getElementById("tabbtn_alerts");
@@ -746,7 +771,6 @@ body.rtl .diagnostics-section {
       if (tabcontentTools) tabcontentTools.classList.toggle("active", tab === "tools");
       if (tabcontentAlerts) tabcontentAlerts.classList.toggle("active", tab === "alerts");
 
-      // Clear any existing chart instance if it exists
       if (liveChart) {
         liveChart.destroy();
         liveChart = null;
@@ -755,13 +779,13 @@ body.rtl .diagnostics-section {
         clearInterval(liveTimer);
         liveTimer = null;
       }
-      if (updateLogTimer) { // Clear update log timer
+      if (updateLogTimer) {
         clearInterval(updateLogTimer);
         updateLogTimer = null;
       }
 
       if(tab === "live") {
-        if (tabcontentLive) { // Ensure tabcontentLive exists
+        if (tabcontentLive) {
             tabcontentLive.innerHTML = `
             <div>
                 <canvas id="liveChart" style="width:100%;max-width:1000px;height:180px;display:block;margin:auto"></canvas>
@@ -780,16 +804,15 @@ body.rtl .diagnostics-section {
             <div style="margin-top:10px;color:#888;font-size:0.92em" id="live-chart-note"></div>
             `;
             liveStatsHistory = [];
-            // Call initLiveChart directly after setting innerHTML
             initLiveChart(); 
-            liveTimer = setInterval(updateLiveStats, 60000); // 1 minute (60000 ms)
+            liveTimer = setInterval(updateLiveStats, 60000);
             setTimeout(updateLiveStats, 120);
             setTimeout(updateSystemInfoBlock, 140);
             setTimeout(updateNetStatusBlock, 180);
         }
       }
       else if(tab === "tools") {
-        if (tabcontentTools) { // Ensure tabcontentTools exists
+        if (tabcontentTools) {
             tabcontentTools.innerHTML = `
             <div style="padding:24px;max-width:700px;margin:auto">
                 <div style="margin-bottom:20px">
@@ -828,7 +851,7 @@ body.rtl .diagnostics-section {
         }
       }
       else if(tab === "alerts") {
-        if (tabcontentAlerts) { // Ensure tabcontentAlerts exists
+        if (tabcontentAlerts) {
             tabcontentAlerts.innerHTML = `
             <div style="padding:24px;">
                 <h3>${LANG === "ar" ? "تنبيهات وتشخيص" : "Alerts & Diagnostics"}</h3>
@@ -896,7 +919,7 @@ body.rtl .diagnostics-section {
         const liveValuesEl = document.getElementById("live-values");
         if (js && js.ok) {
           const d = js.live;
-          if (liveValuesEl) { // Check if element exists
+          if (liveValuesEl) {
             liveValuesEl.innerHTML = `
       <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:22px 14px;font-size:1.05em;margin:18px 0 0 0">
         <div>${LANG === "ar" ? "عدد الرسائل/ثانية" : "Messages/sec"}: <b>${d.messages_per_sec ?? "-"}</b></div>
@@ -931,11 +954,11 @@ body.rtl .diagnostics-section {
           }
 
           const liveChartNote = document.getElementById("live-chart-note");
-          if (liveChartNote) { // Check if element exists
+          if (liveChartNote) {
             liveChartNote.innerText = manual ? "Data refreshed manually." : "";
           }
         } else {
-          if (liveValuesEl) { // Check if element exists
+          if (liveValuesEl) {
             liveValuesEl.innerHTML = `
               <div style="color:red;text-align:center;padding:20px;font-size:1.1em">
                 ${LANG === "ar" ? "خطأ في جلب البيانات" : "Error:"} ${js.msg || "Unknown error"}
@@ -950,7 +973,7 @@ body.rtl .diagnostics-section {
         }
       }).catch(e => {
         const liveValuesEl = document.getElementById("live-values");
-        if (liveValuesEl) { // Check if element exists
+        if (liveValuesEl) {
           liveValuesEl.innerHTML = `
             <div style="color:red;text-align:center;padding:20px;font-size:1.1em">
               ${LANG === "ar" ? "خطأ في الاتصال بالشبكة." : "Network error."}
@@ -959,8 +982,6 @@ body.rtl .diagnostics-section {
         }
       });
     }
-
-    // Removed showStatsArchive() function as requested.
 
     // --- Set Gain Functions ---
     const GAIN_OPTIONS = [
@@ -971,7 +992,7 @@ body.rtl .diagnostics-section {
 
     function renderSetGain() {
       const mainContent = document.getElementById("main-content");
-      if (!mainContent) return; // Defensive check
+      if (!mainContent) return;
 
       mainContent.innerHTML = `
         <h2 style="color:#219150">${LANG === "ar" ? "ضبط الكسب" : "Set Gain"}</h2>
@@ -982,11 +1003,7 @@ body.rtl .diagnostics-section {
         <div id="simple-gain-section" style="margin-top:15px;">
             <label for="gain-select" class="label">${LANG === "ar" ? "اختر قيمة الكسب" : "Select Gain Value"}</label>
             <select id="gain-select" onchange="setGainFromDropdown()">
-                ${GAIN_OPTIONS.map(option => {
-                    // If the option is "auto" or "auto-verbose", display it without "db"
-                    // Otherwise, append "db" to the option value
-                    return `<option value="${option}">${option.includes("auto") ? option : option + "db"}</option>`;
-                }).join('')}
+                ${GAIN_OPTIONS.map(option => `<option value="${option}">${option.includes("auto") ? option : option + "db"}</option>`).join('')}
             </select>
         </div>
 
@@ -1001,7 +1018,7 @@ body.rtl .diagnostics-section {
         </div>
         <div id="result-gain"></div>
       `;
-      updateCurrentGainDisplay(); // Update current gain on page load
+      updateCurrentGainDisplay();
     }
 
     function toggleAdvancedGain() {
@@ -1046,7 +1063,7 @@ body.rtl .diagnostics-section {
 
     function setGain(gainValue) {
       callAPI('/api/service/readsb/set-gain', 'POST', {gain: gainValue}, 'result-gain').then(() => {
-          updateCurrentGainDisplay(); // Update current gain after setting
+          updateCurrentGainDisplay();
       });
     }
 
@@ -1069,7 +1086,7 @@ body.rtl .diagnostics-section {
     // --- QOL Options Functions ---
     function renderGraphsColorscheme() {
       const mainContent = document.getElementById("main-content");
-      if (!mainContent) return; // Defensive check
+      if (!mainContent) return;
       let html = `
         <h2 style="color:#219150">${LANG === "ar" ? "وضع الرسوم البيانية" : "graphs1090 mode"}</h2>
         <div style="margin:20px 0;">${
@@ -1092,7 +1109,7 @@ body.rtl .diagnostics-section {
 
     function renderTarRoutes() {
       const mainContent = document.getElementById("main-content");
-      if (!mainContent) return; // Defensive check
+      if (!mainContent) return;
       let html = `
         <h2 style="color:#219150">${LANG === "ar" ? "مسارات الرحلات" : "Route Info"}</h2>
         <div style="margin:20px 0;">
@@ -1114,7 +1131,7 @@ body.rtl .diagnostics-section {
 
     function renderTarHeatmaps() {
       const mainContent = document.getElementById("main-content");
-      if (!mainContent) return; // Defensive check
+      if (!mainContent) return;
       let html = `
         <h2 style="color:#219150">${LANG === "ar" ? "خرائط الحرارة" : "Heatmaps"}</h2>
         <div style="margin:20px 0;">
@@ -1140,7 +1157,7 @@ body.rtl .diagnostics-section {
     // --- URLs Functions ---
     function renderURLs() {
       const mainContent = document.getElementById("main-content");
-      if (!mainContent) return; // Defensive check
+      if (!mainContent) return;
       mainContent.innerHTML = `<h2>Station URLs</h2>
         <div id="urls-list" style="margin-top:12px;">Loading...</div>`;
       fetch('/api/service/urls', {
@@ -1169,7 +1186,7 @@ body.rtl .diagnostics-section {
     // --- Support Menu Functions ---
     function renderDebug() {
       const mainContent = document.getElementById("main-content");
-      if (!mainContent) return; // Defensive check
+      if (!mainContent) return;
       mainContent.innerHTML = `<h2>${LANG === "ar" ? "نتائج التصحيح" : "Debugging Output"}</h2>
         <div id="debug-block" style="font-family: monospace; white-space: pre-wrap; background: #f0f0f0; padding: 15px; border-radius: 8px; overflow-x: auto;">Loading...</div>`;
       callAPI('/api/service/wingbits/debug', 'GET', null, 'debug-block');
@@ -1177,7 +1194,7 @@ body.rtl .diagnostics-section {
 
     function renderAllLogs() {
       const mainContent = document.getElementById("main-content");
-      if (!mainContent) return; // Defensive check
+      if (!mainContent) return;
       mainContent.innerHTML = `<h2>${LANG === "ar" ? "جميع السجلات الحديثة" : "All Recent Logs"}</h2>
         <div id="result-alllogs">Loading...</div>`;
       callAPI('/api/service/wingbits/logs', 'GET', null, 'result-alllogs');
@@ -1186,13 +1203,13 @@ body.rtl .diagnostics-section {
 
     function renderLastInstallLog() {
       const mainContent = document.getElementById("main-content");
-      if (!mainContent) return; // Defensive check
+      if (!mainContent) return;
       mainContent.innerHTML = `<h2>${LANG === "ar" ? "سجل التثبيت الأخير" : "Last Install Log"}</h2>
         <div id="result-installlog">Loading...</div>`;
       callAPI('/api/service/wingbits/last-install-log', 'GET', null, 'result-installlog');
     }
 
-    // New function to confirm client update
+    // Confirm Wingbits Client update with logs panel
     function confirmUpdateClient() {
       showCustomConfirm(txt[LANG].confirm_update_client, async (confirmed) => {
         if (confirmed) {
@@ -1205,28 +1222,25 @@ body.rtl .diagnostics-section {
             <div id="update-log-display" class="result-block" style="min-height:200px;">${txt[LANG].update_log_placeholder}</div>
             <button class="action" onclick="stopUpdatePolling()" style="margin-top:20px;" id="stop-update-btn">${LANG === 'ar' ? 'إيقاف عرض السجلات' : 'Stop Viewing Logs'}</button>
           `;
-          document.getElementById('stop-update-btn').style.display = 'block'; // Show stop button
+          document.getElementById('stop-update-btn').style.display = 'block';
 
-          // Initial API call to start the update
           const response = await callAPI('/api/service/wingbits/update-client', 'POST', null, null, true);
           const statusMessageEl = document.getElementById('update-status-message');
           if (response && response.ok) {
             if (statusMessageEl) statusMessageEl.style.color = 'blue';
-            // Start polling for logs
             startUpdatePolling();
           } else {
             if (statusMessageEl) {
               statusMessageEl.style.color = 'red';
               statusMessageEl.innerText = response.msg || txt[LANG].update_failed;
             }
-            document.getElementById('stop-update-btn').style.display = 'block'; // Allow user to dismiss
+            document.getElementById('stop-update-btn').style.display = 'block';
           }
         }
       });
     }
 
     function startUpdatePolling() {
-      // Clear any existing timer first
       if (updateLogTimer) {
         clearInterval(updateLogTimer);
         updateLogTimer = null;
@@ -1241,12 +1255,11 @@ body.rtl .diagnostics-section {
         if (response && response.ok) {
           if (logDisplayEl) {
             logDisplayEl.innerHTML = escapeHTML(response.logs);
-            logDisplayEl.scrollTop = logDisplayEl.scrollHeight; // Auto-scroll to bottom
+            logDisplayEl.scrollTop = logDisplayEl.scrollHeight;
           }
           if (response.status === 'finished' || response.status === 'not_started') {
             stopUpdatePolling();
             if (statusMessageEl) {
-                // Simple check for failure based on log content (can be improved)
                 if (response.logs.includes("error") || response.logs.includes("failed") || response.logs.includes("Error:") || response.logs.includes("Failed")) { 
                     statusMessageEl.style.color = 'red';
                     statusMessageEl.innerText = txt[LANG].update_failed;
@@ -1258,7 +1271,7 @@ body.rtl .diagnostics-section {
           } else {
             if (statusMessageEl) {
               statusMessageEl.style.color = 'blue';
-              statusMessageEl.innerText = txt[LANG].update_started; // Keep showing 'started' while running
+              statusMessageEl.innerText = txt[LANG].update_started;
             }
           }
         } else {
@@ -1270,9 +1283,8 @@ body.rtl .diagnostics-section {
         }
       };
 
-      // Fetch immediately and then every 3 seconds
       fetchLogs();
-      updateLogTimer = setInterval(fetchLogs, 3000); // Poll every 3 seconds
+      updateLogTimer = setInterval(fetchLogs, 3000);
     }
 
     function stopUpdatePolling() {
@@ -1281,10 +1293,10 @@ body.rtl .diagnostics-section {
         updateLogTimer = null;
       }
       const stopBtn = document.getElementById('stop-update-btn');
-      if (stopBtn) stopBtn.style.display = 'none'; // Hide stop button after stopping
+      if (stopBtn) stopBtn.style.display = 'none';
     }
 
-
+    // Modal to update/reinstall specific components
     function openUpdateModal() {
       let old = document.getElementById('update-modal');
       if (old) old.remove();
@@ -1308,7 +1320,7 @@ body.rtl .diagnostics-section {
               <input type="checkbox" id="comp_tar1090" checked style="width:18px;height:18px;">
               <label for="comp_tar1090" style="font-size:1.12em;min-width:110px;cursor:pointer">tar1090</label>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;direction:ltr;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;direction:ltr;">
               <input type="checkbox" id="comp_panel" style="width:18px;height:18px;">
               <label for="comp_panel" style="font-size:1.12em;min-width:110px;cursor:pointer">${LANG==="ar"?"لوحة التحكم":"Web Panel"}</label>
             </div>
@@ -1368,10 +1380,10 @@ body.rtl .diagnostics-section {
       });
     }
 
+    // Versions
     function loadFeederVersions() {
-      console.log("loadFeederVersions called");
       const block = document.getElementById("feeder-versions-block");
-      if (!block) return; // Defensive check
+      if (!block) return;
       block.innerHTML = (LANG === "ar" ? "جاري التحميل..." : "Loading...");
       fetch('/api/feeder/versions', {
         headers: { 'X-Auth-Token': AUTH_TOKEN }
@@ -1392,14 +1404,15 @@ body.rtl .diagnostics-section {
         } else {
           block.innerHTML = `<span style="color:red">${(js && js.msg) ? js.msg : (LANG === "ar" ? "تعذر جلب الإصدارات" : "Failed to load versions")}</span>`;
         }
-      }).catch(e => {
+      }).catch(() => {
         block.innerHTML = `<span style="color:red">${LANG === "ar" ? "خطأ في الشبكة!" : "Network error!"}</span>`;
       });
     }
 
+    // System/service status snapshot
     function loadStatusBlock() {
       const block = document.getElementById("status-block");
-      if (!block) return; // Defensive check
+      if (!block) return;
       block.innerHTML = (LANG === "ar" ? "جاري الفحص..." : "Checking...");
       fetch('/api/status/check', {
         headers: { 'X-Auth-Token': AUTH_TOKEN }
@@ -1434,14 +1447,14 @@ body.rtl .diagnostics-section {
         } else {
           block.innerHTML = `<div style="color:red">${LANG === "ar" ? "فشل جلب الحالة" : "Failed to fetch status"}</div>`;
         }
-      }).catch(e=>{
+      }).catch(()=>{
         block.innerHTML = `<span style="color:red">${LANG === "ar" ? "خطأ في الاتصال" : "Network error"}</span>`;
       });
     }
 
     function loadAlerts() {
       const block = document.getElementById("alerts-content");
-      if (!block) return; // Defensive check
+      if (!block) return;
       block.innerHTML = `<div style="padding:32px;text-align:center;color:#888;font-size:1.1em">${LANG==="ar"?"جاري البحث عن تنبيهات...":"Checking for alerts..."}</div>`;
       fetch('/api/alerts', {
         headers: { 'X-Auth-Token': AUTH_TOKEN }
@@ -1459,11 +1472,12 @@ body.rtl .diagnostics-section {
         } else {
           block.innerHTML = `<div style="padding:20px;color:red">${LANG==="ar"?"فشل تحميل التنبيهات":"Failed to load alerts."}</div>`;
         }
-      }).catch(e=>{
+      }).catch(()=>{
         block.innerHTML = `<div style="padding:20px;color:red">${LANG==="ar"?"خطأ بالشبكة":"Network error."}</div>`;
       });
     }
 
+    // System info block on dashboard
     function updateSystemInfoBlock() {
       fetch('/api/system/info', {
         headers: { 'X-Auth-Token': AUTH_TOKEN }
@@ -1471,7 +1485,7 @@ body.rtl .diagnostics-section {
         const systemInfoBlockEl = document.getElementById("system-info-block");
         if (js && js.ok) {
           const d = js.info;
-          if (systemInfoBlockEl) { // Check if element exists
+          if (systemInfoBlockEl) {
             systemInfoBlockEl.innerHTML = `
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.3em 1.7em">
             <div>${LANG==="ar" ? "اسم المضيف" : "Hostname"}</div><div><b>${d.hostname}</b></div>
@@ -1500,7 +1514,7 @@ body.rtl .diagnostics-section {
           `;
           }
         } else {
-          if (systemInfoBlockEl) { // Check if element exists
+          if (systemInfoBlockEl) {
             systemInfoBlockEl.innerHTML = `<div style="color:red">Error: ${js.msg || "unknown error"}</div>`;
           }
         }
@@ -1523,7 +1537,7 @@ body.rtl .diagnostics-section {
           let txtLast = d.last_sync ?
             ((LANG==="ar" ? "آخر مزامنة:" : "Last Sync:") + " <b>" + d.last_sync + "</b>") : "";
 
-          if (netstatusBlockEl) { // Check if element exists
+          if (netstatusBlockEl) {
             netstatusBlockEl.innerHTML = `
             <div style="color:${d.online ? "#197b1f":"#b80c09"};font-weight:bold;margin-bottom:2px">${txtConn}</div>
             <div style="color:${d.server_ok ? "#1355c2":"#bb0d27"};font-weight:bold;margin-bottom:2px">${txtSrv}</div>
@@ -1531,13 +1545,13 @@ body.rtl .diagnostics-section {
             `;
           }
         } else {
-          if (netstatusBlockEl) { // Check if element exists
+          if (netstatusBlockEl) {
             netstatusBlockEl.innerHTML = `<span style="color:red">${LANG==="ar"?"خطأ":"Error"}</span>`;
           }
         }
-      }).catch(e=>{
+      }).catch(()=>{
         const netstatusBlockEl = document.getElementById("netstatus-block");
-        if (netstatusBlockEl) { // Check if element exists
+        if (netstatusBlockEl) {
           netstatusBlockEl.innerHTML = `<span style="color:red">${LANG==="ar"?"خطأ بالشبكة":"Network Error"}</span>`;
         }
       });
@@ -1545,7 +1559,7 @@ body.rtl .diagnostics-section {
 
     function copyDebugInfo() {
       const statusEl = document.getElementById("copy-debug-info-status");
-      if (!statusEl) return; // Defensive check
+      if (!statusEl) return;
       statusEl.style.color = "black";
       statusEl.innerText = LANG === "ar" ? "جاري التجميع..." : "Gathering info...";
       fetch('/api/debug/info', {
@@ -1606,7 +1620,7 @@ ${d.logs || "-"}
     // --- Restart / Shutdown Functions ---
     function renderPower() {
       const mainContent = document.getElementById("main-content");
-      if (!mainContent) return; // Defensive check
+      if (!mainContent) return;
       let html = `
         <h2>${LANG === "ar" ? "إعادة تشغيل الخدمات / الجهاز" : "Restart / Shutdown"}</h2>
         <div class="result-block" style="margin-bottom:18px;">
@@ -1725,7 +1739,6 @@ ${d.logs || "-"}
             input.select();
             input.setSelectionRange(0, 99999); // For mobile devices
             try {
-                // Use the modern clipboard API if available, with a fallback
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     navigator.clipboard.writeText(input.value);
                 } else {
@@ -1747,16 +1760,14 @@ ${d.logs || "-"}
         }
     }
 
-
     function runDiagnosticCommand(commandKey, resultId) {
         callAPI('/api/diagnostics/run-command', 'POST', { command: commandKey }, resultId);
     }
 
-
-    // --- Help / About Page Functions ---
+    // --- Help / About Page ---
     function renderHelp() {
       const mainContent = document.getElementById("main-content");
-      if (!mainContent) return; // Defensive check
+      if (!mainContent) return;
       let html = `<h2>${txt[LANG].about}</h2>
         <div style="margin:10px 0;">
           <b>Wingbits Station Web Config</b><br/>
@@ -1771,7 +1782,6 @@ ${d.logs || "-"}
 
     // --- Authentication Pages and Functions ---
     function renderLoginPage() {
-      // Clear any active chart/timers before rendering login page
       if (liveChart) {
         liveChart.destroy();
         liveChart = null;
@@ -1780,11 +1790,10 @@ ${d.logs || "-"}
         clearInterval(liveTimer);
         liveTimer = null;
       }
-      if (updateLogTimer) { // Clear update log timer
+      if (updateLogTimer) {
         clearInterval(updateLogTimer);
         updateLogTimer = null;
       }
-
 
       const container = document.getElementById("container");
       if (!container) {
@@ -1802,15 +1811,14 @@ ${d.logs || "-"}
           </div>
         </div>
       `;
-      document.body.classList.remove('rtl'); // Ensure no RTL on login page
+      document.body.classList.remove('rtl');
       document.body.dir = 'ltr';
 
-      // Add event listener for Enter key on password field
       const passwordInput = document.getElementById('password');
       if (passwordInput) {
         passwordInput.addEventListener('keydown', function(event) {
           if (event.key === 'Enter' || event.keyCode === 13) {
-            event.preventDefault(); // Prevent default form submission
+            event.preventDefault();
             loginUser();
           }
         });
@@ -1844,7 +1852,7 @@ ${d.logs || "-"}
           AUTH_TOKEN = data.token;
           localStorage.setItem('auth_token', AUTH_TOKEN);
           loginMessage.innerText = '';
-          checkAuthAndRender(); // Redirect to main content
+          checkAuthAndRender();
         } else {
           loginMessage.style.color = 'red';
           loginMessage.innerText = data.msg || txt[LANG].login_failed;
@@ -1869,7 +1877,6 @@ ${d.logs || "-"}
             if (data.ok) {
               AUTH_TOKEN = null;
               localStorage.removeItem('auth_token');
-              // Clear any active chart/timers before rendering login page
               if (liveChart) {
                 liveChart.destroy();
                 liveChart = null;
@@ -1878,11 +1885,11 @@ ${d.logs || "-"}
                 clearInterval(liveTimer);
                 liveTimer = null;
               }
-              if (updateLogTimer) { // Clear update log timer
+              if (updateLogTimer) {
                 clearInterval(updateLogTimer);
                 updateLogTimer = null;
               }
-              checkAuthAndRender(); // Redirect to login page
+              checkAuthAndRender();
             } else {
               showCustomAlert(data.msg || "Logout failed.");
             }
@@ -1896,7 +1903,7 @@ ${d.logs || "-"}
 
     function renderChangePasswordPage() {
       const mainContent = document.getElementById("main-content");
-      if (!mainContent) return; // Defensive check
+      if (!mainContent) return;
       mainContent.innerHTML = `
         <h2>${txt[LANG].change_password}</h2>
         <div class="form-group">
@@ -1959,9 +1966,8 @@ ${d.logs || "-"}
         if (data.ok) {
           messageDiv.style.color = 'green';
           messageDiv.innerText = txt[LANG].password_changed_success;
-          AUTH_TOKEN = null; // Invalidate token on successful password change
+          AUTH_TOKEN = null;
           localStorage.removeItem('auth_token');
-          // Clear any active chart/timers before rendering login page
           if (liveChart) {
             liveChart.destroy();
             liveChart = null;
@@ -1970,11 +1976,11 @@ ${d.logs || "-"}
             clearInterval(liveTimer);
             liveTimer = null;
           }
-          if (updateLogTimer) { // Clear update log timer
+          if (updateLogTimer) {
             clearInterval(updateLogTimer);
             updateLogTimer = null;
           }
-          setTimeout(checkAuthAndRender, 2000); // Redirect to login after 2 seconds
+          setTimeout(checkAuthAndRender, 2000);
         } else {
           messageDiv.style.color = 'red';
           messageDiv.innerText = data.msg || txt[LANG].password_change_fail;
@@ -2075,10 +2081,10 @@ ${d.logs || "-"}
         let q = url.includes("?") ? "&" : "?";
         let res = await fetch(url + q + "lang=" + LANG, opts);
 
-        if (res.status === 401) { // Unauthorized
+        if (res.status === 401) {
             AUTH_TOKEN = null;
             localStorage.removeItem('auth_token');
-            checkAuthAndRender(); // Redirect to login page
+            checkAuthAndRender();
             return null;
         }
 
@@ -2099,6 +2105,131 @@ ${d.logs || "-"}
       }
     }
 
+    // --- Updates Page (Panel & Wingbits Client) ---
+    async function renderUpdatesPage() {
+      const mainContent = document.getElementById("main-content");
+      if (!mainContent) return;
+
+      mainContent.innerHTML = `
+        <h2>${txt[LANG].updates_panel_title}</h2>
+        <div id="updates-status" class="result-block" style="font-size:1.02em">${txt[LANG].please_wait}</div>
+
+        <div id="updates-cards" style="display:grid;gap:14px;margin-top:10px"></div>
+
+        <div style="display:flex;gap:10px;margin-top:10px">
+          <button class="action" onclick="checkUpdatesNow()">${txt[LANG].check_updates}</button>
+          <button class="action" onclick="loadFeederVersions()">${LANG==='ar'?'تحديث الإصدارات الحالية':'Refresh installed versions'}</button>
+        </div>
+
+        <div style="margin-top:16px">
+          <h4 style="margin:8px 0 6px 0">${LANG==='ar'?'الإصدارات الحالية':'Installed versions'}</h4>
+          <div id="feeder-versions-block" style="font-family:monospace"></div>
+        </div>
+      `;
+
+      loadFeederVersions();
+      await checkUpdatesNow();
+    }
+
+    async function checkUpdatesNow() {
+      const statusEl = document.getElementById('updates-status');
+      const cardsEl = document.getElementById('updates-cards');
+      if (statusEl) {
+        statusEl.style.color = '#333';
+        statusEl.innerText = txt[LANG].please_wait;
+      }
+
+      // 1) Installed versions (local)
+      let installed = {};
+      try {
+        const js = await callAPI('/api/feeder/versions','GET',null,null,true);
+        if (js && js.ok && js.versions) installed = js.versions;
+      } catch(_) {}
+
+      // 2) Latest versions (via backend)
+      // Expected backend response: { ok:true, latest:{ panel:'vX.Y.Z', wingbits:'X.Y.Z' }, has_updates:{ panel:true/false, wingbits:true/false } }
+      let latest = {};
+      let has = { panel:false, wingbits:false };
+      try {
+        const upd = await callAPI('/api/updates/check','GET',null,null,true);
+        if (upd && upd.ok) {
+          latest = upd.latest || {};
+          has = upd.has_updates || has;
+        }
+      } catch(_) {}
+
+      const mkLine = (label, value) => `
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="min-width:160px;color:#555">${label}</div>
+          <div><b>${value || txt[LANG].unknown}</b></div>
+        </div>`;
+
+      const panelHas = !!has.panel;
+      const wingHas  = !!has.wingbits;
+
+      const panelCard = `
+        <div class="ts-row ${panelHas?'ts-warn':'ts-ok'}">
+          <div class="ts-title">Panel (Web UI) ${panelHas?`&nbsp; <span class="ts-badge warn">${txt[LANG].update_available}</span>`:''}</div>
+          <div class="ts-details">
+            ${mkLine(txt[LANG].current_version, installed.panel || txt[LANG].unknown)}
+            ${mkLine(txt[LANG].latest_version, latest.panel || txt[LANG].unknown)}
+            ${panelHas
+              ? `<div style="margin-top:10px"><button class="action" onclick="updatePanelNow()">${txt[LANG].update_panel_now}</button></div>`
+              : `<div style="margin-top:10px;color:#2e7d32">${txt[LANG].panel_up_to_date}</div>`
+            }
+          </div>
+        </div>`;
+
+      const wingCard = `
+        <div class="ts-row ${wingHas?'ts-warn':'ts-ok'}">
+          <div class="ts-title">Wingbits Client ${wingHas?`&nbsp; <span class="ts-badge warn">${txt[LANG].update_available}</span>`:''}</div>
+          <div class="ts-details">
+            ${mkLine(txt[LANG].current_version, installed.wingbits || txt[LANG].unknown)}
+            ${mkLine(txt[LANG].latest_version, latest.wingbits || txt[LANG].unknown)}
+            ${wingHas
+              ? `<div style="margin-top:10px"><button class="action" onclick="confirmUpdateClient()">${txt[LANG].update_wingbits_now}</button></div>`
+              : `<div style="margin-top:10px;color:#2e7d32">${txt[LANG].wingbits_up_to_date}</div>`
+            }
+          </div>
+        </div>`;
+
+      if (cardsEl) cardsEl.innerHTML = panelCard + wingCard;
+
+      if (statusEl){
+        if (!latest.panel && !latest.wingbits) {
+          statusEl.style.color = '#b36b00';
+          statusEl.innerText = LANG==='ar'
+            ? 'تم عرض الإصدارات المثبتة. (تعذّر التحقق من الإصدارات الأحدث من الخادم)'
+            : 'Installed versions shown. (Could not verify latest versions from server)';
+        } else {
+          statusEl.style.color = '#2e7d32';
+          statusEl.innerText = LANG==='ar'
+            ? 'تم فحص التحديثات.'
+            : 'Update check completed.';
+        }
+      }
+    }
+
+    // Update Panel (Web UI) using existing backend reinstall endpoint
+    async function updatePanelNow(){
+      const ok = await new Promise(resolve => {
+        showCustomConfirm(LANG==='ar'?'تأكيد تحديث سكربت اللوحة؟':'Confirm updating the Panel script?', r => resolve(r));
+      });
+      if (!ok) return;
+      try {
+        // Reuse backend route to reinstall only the panel
+        const resp = await fetch('/api/update/reinstall', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','X-Auth-Token': AUTH_TOKEN},
+          body: JSON.stringify({components: ['panel']})
+        });
+        const js = await resp.json();
+        showCustomAlert((js && js.msg) || (LANG==='ar'?'تم بدء التحديث. برجاء الانتظار دقيقة ثم أعد تحميل الصفحة.':'Update triggered. Please wait a minute and reload.'));
+      } catch(e){
+        showCustomAlert((LANG==='ar'?'خطأ: ':'Error: ')+ e.message);
+      }
+    }
+
     // --- Authentication Check and Page Rendering ---
     async function checkAuthAndRender() {
         AUTH_TOKEN = localStorage.getItem('auth_token');
@@ -2107,7 +2238,6 @@ ${d.logs || "-"}
         const container = document.getElementById('container'); 
 
         if (!AUTH_TOKEN) {
-            // Clear any active chart/timers before rendering login page
             if (liveChart) {
                 liveChart.destroy();
                 liveChart = null;
@@ -2116,7 +2246,7 @@ ${d.logs || "-"}
                 clearInterval(liveTimer);
                 liveTimer = null;
             }
-            if (updateLogTimer) { // Clear update log timer
+            if (updateLogTimer) {
                 clearInterval(updateLogTimer);
                 updateLogTimer = null;
             }
@@ -2126,7 +2256,7 @@ ${d.logs || "-"}
             return;
         }
 
-        // Verify token with a simple API call (e.g., to /api/system/info)
+        // Verify token with a simple API call
         try {
             const response = await fetch('/api/system/info', {
                 headers: { 'X-Auth-Token': AUTH_TOKEN }
@@ -2134,7 +2264,6 @@ ${d.logs || "-"}
             if (response.status === 401) {
                 AUTH_TOKEN = null;
                 localStorage.removeItem('auth_token');
-                // Clear any active chart/timers before rendering login page
                 if (liveChart) {
                     liveChart.destroy();
                     liveChart = null;
@@ -2143,7 +2272,7 @@ ${d.logs || "-"}
                     clearInterval(liveTimer);
                     liveTimer = null;
                 }
-                if (updateLogTimer) { // Clear update log timer
+                if (updateLogTimer) {
                     clearInterval(updateLogTimer);
                     updateLogTimer = null;
                 }
@@ -2153,10 +2282,8 @@ ${d.logs || "-"}
                 return;
             }
             
-            // If authenticated, ensure the main application structure is present
-            // and then show sidebar and render content.
+            // If authenticated, ensure main app structure exists (after login page)
             if (!document.getElementById('side-menu') || !document.getElementById('main-content')) { 
-                // Rebuild the entire container content if it was replaced by login page
                 container.innerHTML = `
                     <div class="sidebar" id="sidebar">
                         <img class="logo" src="https://wingbits.com/apple-icon.png?34e8dd62bf865c3e" alt="Wingbits" />
@@ -2170,21 +2297,17 @@ ${d.logs || "-"}
                     </div>
                     <div class="main" id="main-content"></div>
                 `;
-                // Re-get references to newly created elements
-                sidebar = document.getElementById('sidebar'); // Re-assign sidebar
-                logoutBtn = document.getElementById('logout-btn'); // Re-assign logoutBtn
+                sidebar = document.getElementById('sidebar');
+                logoutBtn = document.getElementById('logout-btn');
             } 
             
-            // Ensure visibility after successful authentication
             if (sidebar) sidebar.style.display = 'flex';
             if (logoutBtn) logoutBtn.style.display = 'block';
 
-            setLang(LANG); // Re-render menu with correct language
-            renderMenuPage('live_stats'); // Render default page after login
+            setLang(LANG);
+            renderMenuPage('live_stats');
         } catch (error) {
             console.error('Authentication check failed:', error);
-            // If network error or other issue, revert to login page
-            // Clear any active chart/timers before rendering login page
             if (liveChart) {
                 liveChart.destroy();
                 liveChart = null;
@@ -2193,7 +2316,7 @@ ${d.logs || "-"}
                 clearInterval(liveTimer);
                 liveTimer = null;
             }
-            if (updateLogTimer) { // Clear update log timer
+            if (updateLogTimer) {
                 clearInterval(updateLogTimer);
                 updateLogTimer = null;
             }
@@ -2209,12 +2332,12 @@ ${d.logs || "-"}
     }
 
     // --- Page Initialization ---
-    // Moved window.onload to the very end of the script block
     window.onload = function() {
       checkAuthAndRender();
     }
   </script>
 
+<!-- ===== Smart Troubleshooter injection (enhanced) ===== -->
 <script id="WB_TS_V3_INJECTION">
 ;(() => {
   // i18n keys (safe add)
@@ -2235,11 +2358,10 @@ ${d.logs || "-"}
     txt.ar.summary_fail = txt.ar.summary_fail || "المحطة ليست بحالة جيدة.";
   } catch(e) {}
 
-  // ـــ تمييز الحالة من النص مع تجاهل التحذيرات المُزالة/المتجاهَلة ـــ
+  // Infer status from text (ignore cleared/ignored warnings)
   function _wb_inferStatus(details, status){
     const t = (details || '').toLowerCase();
 
-    // تحذيرات مُتجاهلة لا تُحسب
     if (t.includes('warning') && (t.includes('ignored') || t.includes('cleared')))
       return status || 'OK';
 
@@ -2256,7 +2378,7 @@ ${d.logs || "-"}
     return status || 'OK';
   }
 
-  // تنظيف السطور بحسب اللغة المعروضة
+  // Filter mixed-language details according to current UI language
   function _wb_filterDetailsByLang(text){
     try{
       const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
@@ -2279,105 +2401,105 @@ ${d.logs || "-"}
     }catch(e){ return text; }
   }
 
-  // ـــ نصائح موجهة حسب العطل الفعلي فقط ـــ
+  // Build context-aware Next Steps block based on actual failure cues
   function _wb_buildNextSteps(title, details, status){
-  const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
-  const t = (details || '').toLowerCase();
-  const isFail = status === 'FAIL' || /failed|error|✗|×/i.test(details || '');
-  if (!isFail) return '';
+    const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
+    const t = (details || '').toLowerCase();
+    const isFail = status === 'FAIL' || /failed|error|✗|×/i.test(details || '');
+    if (!isFail) return '';
 
-  const cues = {
-    geosignerMissing: /no geosigner device found|geosigner not available/i.test(t),
-    geosignerNotLinked: /geosigner is not linked/i.test(t),
-    sdrMissing: /rtlsdr:\s*no supported devices|sdr not detected|no rtl[-\/]?sdr/i.test(t),
-    readsbDown: /stats\.json not found|readsb\.service[^\n]*fail|sdropen\(\) failed|abnormal exit/i.test(t),
-    // NEW: heuristic — readsb “zero input” means SDR مشكلة محتملة حتى بدون رسالة rtl-sdr
-    inputZero: /data input status:\s*failed/.test(t) && (
-                 /messages:\s*0\/min/.test(t) ||
-                 /data received:\s*0 bytes/.test(t) ||
-                 /signal:\s*0\.?0 dB/.test(t)
-               ),
-    dnsFail: /(temporary failure in name resolution|no such host|could not resolve|resolve.*failed|dns.*(fail|error))/i.test(t),
-    ntpBad: /ntp.*(unsync|not sync|false)/i.test(t),
-    diskLow: /(disk .*(full|low)|no space left)/i.test(t),
-    memLow: /(out of memory|oom|low memory)/i.test(t),
-    tempHigh: /(overheat|thermal|high temp|throttled)/i.test(t),
-  };
+    const cues = {
+      geosignerMissing: /no geosigner device found|geosigner not available/i.test(t),
+      geosignerNotLinked: /geosigner is not linked/i.test(t),
+      sdrMissing: /rtlsdr:\s*no supported devices|sdr not detected|no rtl[-\/]?sdr/i.test(t),
+      readsbDown: /stats\.json not found|readsb\.service[^\n]*fail|sdropen\(\) failed|abnormal exit/i.test(t),
+      // Heuristic: zero input -> likely SDR problem even if rtl-sdr message not present
+      inputZero: /data input status:\s*failed/.test(t) && (
+                   /messages:\s*0\/min/.test(t) ||
+                   /data received:\s*0 bytes/.test(t) ||
+                   /signal:\s*0\.?0 dB/.test(t)
+                 ),
+      dnsFail: /(temporary failure in name resolution|no such host|could not resolve|resolve.*failed|dns.*(fail|error))/i.test(t),
+      ntpBad: /ntp.*(unsync|not sync|false)/i.test(t),
+      diskLow: /(disk .*(full|low)|no space left)/i.test(t),
+      memLow: /(out of memory|oom|low memory)/i.test(t),
+      tempHigh: /(overheat|thermal|high temp|throttled)/i.test(t),
+    };
 
-  // إذا كان العطل GeoSigner فقط
-  if (cues.geosignerMissing || cues.geosignerNotLinked){
-    const tips = (lang === 'ar')
-      ? [
-          'تأكد من توصيل جهاز GeoSigner عبر USB (جرّب منفذ/سلك آخر)، وتحقق من ظهوره في lsusb.',
-          'إذا لم يُكتشف بعد ذلك، فقد يكون الجهاز تالفًا — تواصل مع الدعم أو استبدل الوحدة.',
-          cues.geosignerNotLinked ? 'نفّذ: wingbits geosigner link ثم تحقّق باستخدام: wingbits status.' : null,
-        ].filter(Boolean)
-      : [
-          'Make sure the GeoSigner USB is connected (try another port/cable); check lsusb for detection.',
-          'If still not detected, the device may be faulty — contact support or replace the unit.',
-          cues.geosignerNotLinked ? 'Run: wingbits geosigner link, then verify with: wingbits status.' : null,
-        ].filter(Boolean);
-    return _wb_renderNextSteps(tips, status);
+    // GeoSigner-only guidance
+    if (cues.geosignerMissing || cues.geosignerNotLinked){
+      const tips = (lang === 'ar')
+        ? [
+            'تأكد من توصيل جهاز GeoSigner عبر USB (جرّب منفذ/سلك آخر)، وتحقق من ظهوره في lsusb.',
+            'إذا لم يُكتشف بعد ذلك، فقد يكون الجهاز تالفًا — تواصل مع الدعم أو استبدل الوحدة.',
+            cues.geosignerNotLinked ? 'نفّذ: wingbits geosigner link ثم تحقّق باستخدام: wingbits status.' : null,
+          ].filter(Boolean)
+        : [
+            'Make sure the GeoSigner USB is connected (try another port/cable); check lsusb for detection.',
+            'If still not detected, the device may be faulty — contact support or replace the unit.',
+            cues.geosignerNotLinked ? 'Run: wingbits geosigner link, then verify with: wingbits status.' : null,
+          ].filter(Boolean);
+      return _wb_renderNextSteps(tips, status);
+    }
+
+    const tips = [];
+
+    // SDR likely root-cause (explicit missing or zero input symptoms)
+    const sdrLikely = cues.sdrMissing || cues.inputZero;
+    if (sdrLikely){
+      tips.push(
+        lang==='ar'
+          ? 'تأكد من تثبيت وتركيب دونجل RTL-SDR بإحكام. إن كان متصلًا، افصله وأعد توصيله ثم: sudo systemctl restart readsb.'
+          : 'Ensure the RTL-SDR dongle is firmly plugged. If it is, unplug/replug it, then: sudo systemctl restart readsb.',
+        lang==='ar'
+          ? 'تحقّق من الكشف: lsusb (ابحث عن RTL2832U/R820T). إن لم يظهر، جرّب منفذ/كيبل USB آخر أو موزّع مزوّد بالطاقة.'
+          : 'Verify detection: lsusb (look for RTL2832U/R820T). If missing, try a different USB port/cable or a powered hub.',
+        lang==='ar'
+          ? 'إذا استمر الفشل، قد يكون الدونجل/التعريف تالفًا — جرّب دونجل آخر أو أعد تثبيت تعريفات rtl-sdr.'
+          : 'If still failing, the dongle/driver may be faulty — try another dongle or reinstall rtl-sdr drivers.'
+      );
+    }
+
+    if (cues.readsbDown){
+      tips.push(
+        lang==='ar'
+          ? 'إذا كان stats.json مفقودًا فغالبًا readsb لا يعمل أو لا يكتب في ‎/run/readsb — افحص: systemctl status readsb و journalctl -u readsb -n 100.'
+          : 'If stats.json is missing, readsb likely isn’t running or writing to /run/readsb — check: systemctl status readsb and journalctl -u readsb -n 100.'
+      );
+    }
+
+    if (cues.dnsFail){
+      tips.push(
+        lang==='ar'
+          ? 'جرّب تعيين DNS احتياطي (مثل 1.1.1.1, 8.8.8.8). على systemd: حرّر ‎/etc/systemd/resolved.conf ثم استخدم resolvectl flush-caches.'
+          : 'Try setting fallback DNS (e.g., 1.1.1.1, 8.8.8.8). On systemd: edit /etc/systemd/resolved.conf then use resolvectl flush-caches.',
+        lang==='ar'
+          ? 'اختبار: dig api.wingbits.com أو systemd-resolve --status للتأكد من الحلّ.'
+          : 'Test: dig api.wingbits.com or systemd-resolve --status to verify resolution.'
+      );
+    }
+    if (cues.ntpBad){
+      tips.push(
+        lang==='ar' ? 'تأكد من تزامن الوقت (NTP) — افحص systemd-timesyncd أو ntpsec.' :
+                      'Ensure time is synced (NTP) — check systemd-timesyncd or ntpsec.'
+      );
+    }
+    if (cues.diskLow){
+      tips.push(lang==='ar' ? 'المساحة منخفضة — حرّر مساحة أو وسّع التخزين.' : 'Low disk — free up space or expand storage.');
+    }
+    if (cues.memLow){
+      tips.push(lang==='ar' ? 'الذاكرة منخفضة — أغلق البرامج الثقيلة أو زد الـswap/الرام.' : 'Low memory — close heavy apps or increase swap/RAM.');
+    }
+    if (cues.tempHigh){
+      tips.push(lang==='ar' ? 'حرارة مرتفعة — حسّن التبريد أو قلل الحمل.' : 'High temperature — improve cooling or reduce load.');
+    }
+
+    return tips.length ? _wb_renderNextSteps(tips, status) : '';
   }
 
-  const tips = [];
-
-  // ✅ استخدم sdrLikely بدلاً من sdrMissing فقط
-  const sdrLikely = cues.sdrMissing || cues.inputZero;
-  if (sdrLikely){
-    tips.push(
-      lang==='ar'
-        ? 'تأكد من تثبيت وتركيب دونجل RTL-SDR بإحكام. إن كان متصلًا، افصله وأعد توصيله ثم: sudo systemctl restart readsb.'
-        : 'Ensure the RTL-SDR dongle is firmly plugged. If it is, unplug/replug it, then: sudo systemctl restart readsb.',
-      lang==='ar'
-        ? 'تحقّق من الكشف: lsusb (ابحث عن RTL2832U/R820T). إن لم يظهر، جرّب منفذ/كيبل USB آخر أو موزّع مزوّد بالطاقة.'
-        : 'Verify detection: lsusb (look for RTL2832U/R820T). If missing, try a different USB port/cable or a powered hub.',
-      lang==='ar'
-        ? 'إذا استمر الفشل، قد يكون الدونجل/التعريف تالفًا — جرّب دونجل آخر أو أعد تثبيت تعريفات rtl-sdr.'
-        : 'If still failing, the dongle/driver may be faulty — try another dongle or reinstall rtl-sdr drivers.'
-    );
-  }
-
-  if (cues.readsbDown){
-    tips.push(
-      lang==='ar'
-        ? 'إذا كان stats.json مفقودًا فغالبًا readsb لا يعمل أو لا يكتب في ‎/run/readsb — افحص: systemctl status readsb و journalctl -u readsb -n 100.'
-        : 'If stats.json is missing, readsb likely isn’t running or writing to /run/readsb — check: systemctl status readsb and journalctl -u readsb -n 100.'
-    );
-  }
-
-  if (cues.dnsFail){
-    tips.push(
-      lang==='ar'
-        ? 'جرّب تعيين DNS احتياطي (مثل 1.1.1.1, 8.8.8.8). على systemd: حرّر ‎/etc/systemd/resolved.conf ثم استخدم resolvectl flush-caches.'
-        : 'Try setting fallback DNS (e.g., 1.1.1.1, 8.8.8.8). On systemd: edit /etc/systemd/resolved.conf then use resolvectl flush-caches.',
-      lang==='ar'
-        ? 'اختبار: dig api.wingbits.com أو systemd-resolve --status للتأكد من الحلّ.'
-        : 'Test: dig api.wingbits.com or systemd-resolve --status to verify resolution.'
-    );
-  }
-
-  if (cues.ntpBad){
-    tips.push(lang==='ar'
-      ? 'تأكد من تزامن الوقت (NTP) — افحص systemd-timesyncd أو ntpsec.'
-      : 'Ensure time is synced (NTP) — check systemd-timesyncd or ntpsec.');
-  }
-  if (cues.diskLow){
-    tips.push(lang==='ar' ? 'المساحة منخفضة — حرّر مساحة أو وسّع التخزين.' : 'Low disk — free up space or expand storage.');
-  }
-  if (cues.memLow){
-    tips.push(lang==='ar' ? 'الذاكرة منخفضة — أغلق البرامج الثقيلة أو زد الـswap/الرام.' : 'Low memory — close heavy apps or increase swap/RAM.');
-  }
-  if (cues.tempHigh){
-    tips.push(lang==='ar' ? 'حرارة مرتفعة — حسّن التبريد أو قلل الحمل.' : 'High temperature — improve cooling or reduce load.');
-  }
-
-  return tips.length ? _wb_renderNextSteps(tips, status) : '';
-}
-
-
+  // Render "Next steps" with red header for both FAIL and WARN
   function _wb_renderNextSteps(lines, status){
-    const color = status==='FAIL' ? '#c62828' : '#b36b00';
+    const color = '#c62828'; // Always red for FAIL/WARN as requested
     return (
       '<div class="ts-details" style="margin-top:10px;border-top:1px dashed #e6eaf2;padding-top:10px">'
       + `<div style="font-weight:800;color:${color};margin-bottom:6px">Next steps:</div>`
@@ -2387,7 +2509,7 @@ ${d.logs || "-"}
     );
   }
 
-  // زر “Smart Troubleshooter” في قائمة الدعم
+  // Insert TS button under Support menu
   function addTSButton(){
     const side = document.getElementById('side-menu');
     if (!side) return;
@@ -2411,6 +2533,7 @@ ${d.logs || "-"}
     container.insertBefore(btn, container.firstChild);
   }
 
+  // Hook into renderMenuPage to route to Troubleshooter view
   if (typeof window.renderMenuPage === 'function') {
     const _origRenderMenuPage = window.renderMenuPage;
     window.renderMenuPage = function(key, sub, qolSub){
@@ -2431,7 +2554,7 @@ ${d.logs || "-"}
     mo.observe(side, {childList:true, subtree:true});
   }
 
-  // UI
+  // Troubleshooter UI
   window.renderTroubleshooter = function(){
     const el = document.getElementById('main-content');
     if (!el) return;
@@ -2448,6 +2571,7 @@ ${d.logs || "-"}
       + '<div id="ts-results"></div>';
   };
 
+  // Execute Troubleshooter
   window.runTroubleshooter = async function(){
     const resultsEl = document.getElementById('ts-results');
     const summaryEl = document.getElementById('ts-summary');
@@ -2470,7 +2594,7 @@ ${d.logs || "-"}
 
       let checks = (js.checks || []).map(c => ({...c, status: _wb_inferStatus(c.details, c.status)}));
 
-      // لو readsb صحي، تجاهل “log hint” القديم
+      // If readsb is healthy now, downgrade old hints
       try{
         const readsbHealthy = (checks || []).some(x => /wingbits detailed status/i.test(x.title||'') && /data input status:\s*ok/i.test(x.details||''));
         if (readsbHealthy){
@@ -2484,7 +2608,7 @@ ${d.logs || "-"}
         }
       }catch(_){}
 
-      // احسب الملخص من النتائج الفعلية فقط
+      // Overall summary strictly from actual checks
       let overall = 'OK';
       if (checks.some(c=>c.status==='FAIL')) overall = 'FAIL';
       else if (checks.some(c=>c.status==='WARN')) overall = 'WARN';
