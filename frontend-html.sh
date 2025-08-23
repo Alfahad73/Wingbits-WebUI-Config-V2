@@ -2238,16 +2238,25 @@ ${d.logs || "-"}
   } catch(e) {}
 
   function _wb_inferStatus(details, status){
-    const t = (details || '').toLowerCase();
-    const hard = t.includes('failed') || t.includes('error')
-      || t.includes('no geosigner device found')
-      || t.includes('geosigner is not linked')
-      || t.includes('not linked') || t.includes('not available')
-      || /[✗×]/.test(details || '');
-    if (hard) return 'FAIL';
-    if (t.includes('warn') || t.includes('warning')) return status === 'OK' ? 'WARN' : status;
+  const t = (details || '').toLowerCase();
+
+  if (t.includes('warning') && (t.includes('ignored') || t.includes('cleared')))
     return status || 'OK';
+
+  const hard = t.includes('failed') || t.includes('error')
+    || t.includes('no geosigner device found')
+    || t.includes('geosigner is not linked')
+    || t.includes('not linked') || t.includes('not available')
+    || /[✗×]/.test(details || '');
+  if (hard) return 'FAIL';
+
+  if (t.includes('warn') || t.includes('warning')) {
+    return status === 'OK' ? 'WARN' : (status || 'WARN');
   }
+
+  return status || 'OK';
+}
+
 
   // Show EN only when UI is EN (hide Arabic hints) — and vice versa
   function _wb_filterDetailsByLang(text){
@@ -2517,9 +2526,10 @@ ${d.logs || "-"}
         }
       }catch(_){}
 
-      let overall = (js.summary && js.summary.overall) || 'OK';
-      if (checks.some(c=>c.status==='FAIL')) overall = 'FAIL';
-      else if (checks.some(c=>c.status==='WARN')) overall = 'WARN';
+let overall = 'OK';
+if (checks.some(c => c.status === 'FAIL')) overall = 'FAIL';
+else if (checks.some(c => c.status === 'WARN')) overall = 'WARN';
+
 
       if (summaryEl){
         summaryEl.textContent = overall==='OK'
