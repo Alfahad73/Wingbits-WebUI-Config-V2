@@ -2281,91 +2281,100 @@ ${d.logs || "-"}
 
   // ـــ نصائح موجهة حسب العطل الفعلي فقط ـــ
   function _wb_buildNextSteps(title, details, status){
-    const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
-    const t = (details || '').toLowerCase();
-    const isFail = status === 'FAIL' || /failed|error|✗|×/i.test(details || '');
+  const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
+  const t = (details || '').toLowerCase();
+  const isFail = status === 'FAIL' || /failed|error|✗|×/i.test(details || '');
+  if (!isFail) return '';
 
-    if (!isFail) return ''; // لا تعرض خطوات عند OK
+  const cues = {
+    geosignerMissing: /no geosigner device found|geosigner not available/i.test(t),
+    geosignerNotLinked: /geosigner is not linked/i.test(t),
+    sdrMissing: /rtlsdr:\s*no supported devices|sdr not detected|no rtl[-\/]?sdr/i.test(t),
+    readsbDown: /stats\.json not found|readsb\.service[^\n]*fail|sdropen\(\) failed|abnormal exit/i.test(t),
+    // NEW: heuristic — readsb “zero input” means SDR مشكلة محتملة حتى بدون رسالة rtl-sdr
+    inputZero: /data input status:\s*failed/.test(t) && (
+                 /messages:\s*0\/min/.test(t) ||
+                 /data received:\s*0 bytes/.test(t) ||
+                 /signal:\s*0\.?0 dB/.test(t)
+               ),
+    dnsFail: /(temporary failure in name resolution|no such host|could not resolve|resolve.*failed|dns.*(fail|error))/i.test(t),
+    ntpBad: /ntp.*(unsync|not sync|false)/i.test(t),
+    diskLow: /(disk .*(full|low)|no space left)/i.test(t),
+    memLow: /(out of memory|oom|low memory)/i.test(t),
+    tempHigh: /(overheat|thermal|high temp|throttled)/i.test(t),
+  };
 
-    const cues = {
-      geosignerMissing: /no geosigner device found|geosigner not available/i.test(t),
-      geosignerNotLinked: /geosigner is not linked/i.test(t),
-      sdrMissing: /rtlsdr:\s*no supported devices|sdr not detected|no rtl[-\/]?sdr/i.test(t),
-      readsbDown: /stats\.json not found|readsb\.service[^\n]*fail|sdropen\(\) failed|abnormal exit/i.test(t),
-      // DNS فشل حقيقي فقط (وليس مجرد سطر "DNS resolution for ...")
-      dnsFail: /(temporary failure in name resolution|no such host|could not resolve|resolve.*failed|dns.*(fail|error))/i.test(t),
-      ntpBad: /ntp.*(unsync|not sync|false)/i.test(t),
-      diskLow: /(disk .*(full|low)|no space left)/i.test(t),
-      memLow: /(out of memory|oom|low memory)/i.test(t),
-      tempHigh: /(overheat|thermal|high temp|throttled)/i.test(t),
-    };
-
-    // لو العطل GeoSigner فقط، أعطِ تعليمات GeoSigner فقط
-    if (cues.geosignerMissing || cues.geosignerNotLinked){
-      const tips = (lang === 'ar')
-        ? [
-            'تأكد من توصيل جهاز GeoSigner عبر USB (جرّب منفذ/سلك آخر)، وتحقق من ظهوره في lsusb.',
-            'إذا لم يُكتشف بعد ذلك، فقد يكون الجهاز تالفًا — تواصل مع الدعم أو استبدل الوحدة.',
-            cues.geosignerNotLinked ? 'نفّذ: wingbits geosigner link ثم تحقّق باستخدام: wingbits status.' : null,
-          ].filter(Boolean)
-        : [
-            'Make sure the GeoSigner USB is connected (try another port/cable); check lsusb for detection.',
-            'If still not detected, the device may be faulty — contact support or replace the unit.',
-            cues.geosignerNotLinked ? 'Run: wingbits geosigner link, then verify with: wingbits status.' : null,
-          ].filter(Boolean);
-      return _wb_renderNextSteps(tips, status);
-    }
-
-    // غير ذلك: أعرض فقط النصائح الموافقة للإشارات المضبوطة
-    const tips = [];
-    if (cues.sdrMissing){
-      tips.push(
-        lang==='ar'
-          ? 'تأكد من تثبيت وتركيب دونجل RTL-SDR بإحكام. إن كان متصلًا، افصله وأعد توصيله ثم: sudo systemctl restart readsb.'
-          : 'Ensure the RTL-SDR dongle is firmly plugged. If it is, unplug/replug it, then: sudo systemctl restart readsb.',
-        lang==='ar'
-          ? 'تحقّق من الكشف: lsusb (ابحث عن RTL2832U/R820T). إن لم يظهر، جرّب منفذ/كيبل USB آخر أو موزّع مزوّد بالطاقة.'
-          : 'Verify detection: lsusb (look for RTL2832U/R820T). If missing, try a different USB port/cable or a powered hub.',
-        lang==='ar'
-          ? 'إذا استمر الفشل، قد يكون الدونجل/التعريف تالفًا — جرّب دونجل آخر أو أعد تثبيت تعريفات rtl-sdr.'
-          : 'If still failing, the dongle/driver may be faulty — try another dongle or reinstall rtl-sdr drivers.'
-      );
-    }
-    if (cues.readsbDown){
-      tips.push(
-        lang==='ar'
-          ? 'إذا كان stats.json مفقودًا فغالبًا readsb لا يعمل أو لا يكتب في ‎/run/readsb — افحص: systemctl status readsb و journalctl -u readsb -n 100.'
-          : 'If stats.json is missing, readsb likely isn’t running or writing to /run/readsb — check: systemctl status readsb and journalctl -u readsb -n 100.'
-      );
-    }
-    if (cues.dnsFail){
-      tips.push(
-        lang==='ar'
-          ? 'جرّب تعيين DNS احتياطي (مثل 1.1.1.1, 8.8.8.8). على systemd: حرّر ‎/etc/systemd/resolved.conf ثم استخدم resolvectl flush-caches.'
-          : 'Try setting fallback DNS (e.g., 1.1.1.1, 8.8.8.8). On systemd: edit /etc/systemd/resolved.conf then use resolvectl flush-caches.',
-        lang==='ar'
-          ? 'اختبار: dig api.wingbits.com أو systemd-resolve --status للتأكد من الحلّ.'
-          : 'Test: dig api.wingbits.com or systemd-resolve --status to verify resolution.'
-      );
-    }
-    if (cues.ntpBad){
-      tips.push(
-        lang==='ar' ? 'تأكد من تزامن الوقت (NTP) — افحص systemd-timesyncd أو ntpsec.' :
-                      'Ensure time is synced (NTP) — check systemd-timesyncd or ntpsec.'
-      );
-    }
-    if (cues.diskLow){
-      tips.push(lang==='ar' ? 'المساحة منخفضة — حرّر مساحة أو وسّع التخزين.' : 'Low disk — free up space or expand storage.');
-    }
-    if (cues.memLow){
-      tips.push(lang==='ar' ? 'الذاكرة منخفضة — أغلق البرامج الثقيلة أو زد الـswap/الرام.' : 'Low memory — close heavy apps or increase swap/RAM.');
-    }
-    if (cues.tempHigh){
-      tips.push(lang==='ar' ? 'حرارة مرتفعة — حسّن التبريد أو قلل الحمل.' : 'High temperature — improve cooling or reduce load.');
-    }
-
-    return tips.length ? _wb_renderNextSteps(tips, status) : '';
+  // إذا كان العطل GeoSigner فقط
+  if (cues.geosignerMissing || cues.geosignerNotLinked){
+    const tips = (lang === 'ar')
+      ? [
+          'تأكد من توصيل جهاز GeoSigner عبر USB (جرّب منفذ/سلك آخر)، وتحقق من ظهوره في lsusb.',
+          'إذا لم يُكتشف بعد ذلك، فقد يكون الجهاز تالفًا — تواصل مع الدعم أو استبدل الوحدة.',
+          cues.geosignerNotLinked ? 'نفّذ: wingbits geosigner link ثم تحقّق باستخدام: wingbits status.' : null,
+        ].filter(Boolean)
+      : [
+          'Make sure the GeoSigner USB is connected (try another port/cable); check lsusb for detection.',
+          'If still not detected, the device may be faulty — contact support or replace the unit.',
+          cues.geosignerNotLinked ? 'Run: wingbits geosigner link, then verify with: wingbits status.' : null,
+        ].filter(Boolean);
+    return _wb_renderNextSteps(tips, status);
   }
+
+  const tips = [];
+
+  // ✅ استخدم sdrLikely بدلاً من sdrMissing فقط
+  const sdrLikely = cues.sdrMissing || cues.inputZero;
+  if (sdrLikely){
+    tips.push(
+      lang==='ar'
+        ? 'تأكد من تثبيت وتركيب دونجل RTL-SDR بإحكام. إن كان متصلًا، افصله وأعد توصيله ثم: sudo systemctl restart readsb.'
+        : 'Ensure the RTL-SDR dongle is firmly plugged. If it is, unplug/replug it, then: sudo systemctl restart readsb.',
+      lang==='ar'
+        ? 'تحقّق من الكشف: lsusb (ابحث عن RTL2832U/R820T). إن لم يظهر، جرّب منفذ/كيبل USB آخر أو موزّع مزوّد بالطاقة.'
+        : 'Verify detection: lsusb (look for RTL2832U/R820T). If missing, try a different USB port/cable or a powered hub.',
+      lang==='ar'
+        ? 'إذا استمر الفشل، قد يكون الدونجل/التعريف تالفًا — جرّب دونجل آخر أو أعد تثبيت تعريفات rtl-sdr.'
+        : 'If still failing, the dongle/driver may be faulty — try another dongle or reinstall rtl-sdr drivers.'
+    );
+  }
+
+  if (cues.readsbDown){
+    tips.push(
+      lang==='ar'
+        ? 'إذا كان stats.json مفقودًا فغالبًا readsb لا يعمل أو لا يكتب في ‎/run/readsb — افحص: systemctl status readsb و journalctl -u readsb -n 100.'
+        : 'If stats.json is missing, readsb likely isn’t running or writing to /run/readsb — check: systemctl status readsb and journalctl -u readsb -n 100.'
+    );
+  }
+
+  if (cues.dnsFail){
+    tips.push(
+      lang==='ar'
+        ? 'جرّب تعيين DNS احتياطي (مثل 1.1.1.1, 8.8.8.8). على systemd: حرّر ‎/etc/systemd/resolved.conf ثم استخدم resolvectl flush-caches.'
+        : 'Try setting fallback DNS (e.g., 1.1.1.1, 8.8.8.8). On systemd: edit /etc/systemd/resolved.conf then use resolvectl flush-caches.',
+      lang==='ar'
+        ? 'اختبار: dig api.wingbits.com أو systemd-resolve --status للتأكد من الحلّ.'
+        : 'Test: dig api.wingbits.com or systemd-resolve --status to verify resolution.'
+    );
+  }
+
+  if (cues.ntpBad){
+    tips.push(lang==='ar'
+      ? 'تأكد من تزامن الوقت (NTP) — افحص systemd-timesyncd أو ntpsec.'
+      : 'Ensure time is synced (NTP) — check systemd-timesyncd or ntpsec.');
+  }
+  if (cues.diskLow){
+    tips.push(lang==='ar' ? 'المساحة منخفضة — حرّر مساحة أو وسّع التخزين.' : 'Low disk — free up space or expand storage.');
+  }
+  if (cues.memLow){
+    tips.push(lang==='ar' ? 'الذاكرة منخفضة — أغلق البرامج الثقيلة أو زد الـswap/الرام.' : 'Low memory — close heavy apps or increase swap/RAM.');
+  }
+  if (cues.tempHigh){
+    tips.push(lang==='ar' ? 'حرارة مرتفعة — حسّن التبريد أو قلل الحمل.' : 'High temperature — improve cooling or reduce load.');
+  }
+
+  return tips.length ? _wb_renderNextSteps(tips, status) : '';
+}
+
 
   function _wb_renderNextSteps(lines, status){
     const color = status==='FAIL' ? '#c62828' : '#b36b00';
