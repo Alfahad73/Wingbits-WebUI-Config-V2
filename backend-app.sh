@@ -1,14 +1,16 @@
 #!/bin/bash
+# backend-app.sh
+# Writes the Flask backend application (app.py) for the Wingbits station web panel.
 
-# Write the Flask backend application (app.py)
-# This script generates the Python Flask application file for the web panel.
-
-set -e
+set -euo pipefail
 
 echo "Writing backend files..."
 
 INSTALL_DIR="/opt/wingbits-station-web"
 BACKEND_DIR="$INSTALL_DIR/backend"
+CONF_DIR="$INSTALL_DIR/conf"
+
+mkdir -p "$BACKEND_DIR" "$CONF_DIR"
 
 cat > "$BACKEND_DIR/app.py" << 'EOF'
 import os
@@ -129,7 +131,7 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         global CURRENT_SESSION_TOKEN
         auth_token = request.headers.get('X-Auth-Token')
-        if not auth_token or auth_token != CURRENT_SESSION_TOKEN:
+        if not auth_token or not auth_token == CURRENT_SESSION_TOKEN:
             return jsonify({'ok': False, 'msg': 'Unauthorized'}), 401
         return f(*args, **kwargs)
     return decorated_function
@@ -797,7 +799,6 @@ def api_shutdown():
     return jsonify({'result': "Device is shutting down...", 'desc': lang_desc("pi_shutdown", lang)})
 
 # ----------------- NEW: SMART TROUBLESHOOTER -----------------
-
 def _svc_active(name):
     try:
         out = subprocess.check_output(['systemctl', 'is-active', name], stderr=subprocess.STDOUT).decode().strip()
@@ -833,7 +834,7 @@ def _readsb_flow_ok(stats):
 def _parse_readsb_hints(log_text):
     hints = []
     patterns = [
-        (r'No supported devices found', "SDR not detected (driver/USB). تأكد من توصيل الدونجل وتعريفه."),
+        (r'No supported devices found', "SDR not detected (driver/USB). تأكد من توصيل الدونغل وتعريفه."),
         (r'usb_open error|could not open', "لا يمكن فتح الدونجل (سماحية/تعريف). جرّب إعادة التشغيل أو تغيير المنفذ."),
         (r'rtlsdr_demod_write_reg failed', "مشكلة اتصال RTL-SDR. تحقق من الكابل والطاقة."),
         (r'usb_claim_interface error', "تعارض برنامج آخر مع الدونجل (dvb_usb_rtl28xxu). جرّب: sudo rmmod dvb_usb_rtl28xxu"),
@@ -876,34 +877,101 @@ def _status_label(ok_bool, warn=False):
         return "OK"
     return "WARN" if warn else "FAIL"
 
-# ---- NEW: helpers for auto-fix (masked/enable/start) ----
-def _run_list(cmd_list):
-    """Run a command list without shell, return (rc, out, err)."""
+# -------- Geo location helpers (NEW) --------
+def _haversine_km(lat1, lon1, lat2, lon2):
+    from math import radians, sin, cos, asin, sqrt
+    R = 6371.0
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat/2)**2 + cos(radians(lat1))*cos(radians(lat2))*sin(dlon/2)**2
+    return 2 * R * asin(sqrt(a))
+
+def _parse_geosigner_info_txt(txt):
+    lat = lon = sats = None
+    m = re.search(r'(?:gps_)?lat(?:itude)?\s*[:=]\s*(-?\d+\.\d+)', txt, re.I)
+    if m: lat = float(m.group(1))
+    m = re.search(r'(?:gps_)?lon(?:gitude)?\s*[:=]\s*(-?\d+\.\d+)', txt, re.I)
+    if m: lon = float(m.group(1))
+    m = re.search(r'(?:satellites|sats)\s*[:=]\s*(\d+)', txt, re.I)
+    if m: sats = int(m.group(1))
+    return lat, lon, sats
+
+def _readsb_config_location():
+    lat, lon = None, None
+    config_path = "/etc/default/readsb"
+    if not os.path.exists(config_path):
+        return None, None
+    try:
+        with open(config_path, "r") as f:
+            lines = f.readlines()
+        for line in lines:
+            if '--lat' in line and '--lon' in line:
+                line = line.replace('"','').replace("'","")
+                parts = line.split()
+                for i, p in enumerate(parts):
+                    if p == '--lat' and (i+1) < len(parts):
+                        lat = parts[i+1]
+                    if p == '--lon' and (i+1) < len(parts):
+                        lon = parts[i+1]
+        if not lat or not lon:
+            for line in lines:
+                if line.strip().startswith("DECODER_OPTIONS="):
+                    vals = line.split("=",1)[-1].replace('"','').replace("'","")
+                    p = vals.split()
+                    if '--lat' in p: lat = p[p.index('--lat')+1]
+                    if '--lon' in p: lon = p[p.index('--lon')+1]
+        lat = float(lat) if lat else None
+        lon = float(lon) if lon else None
+    except Exception:
+        lat = lon = None
+    return lat, lon
+
+def _set_readsb_location(lat, lon):
+    cfg = "/etc/default/readsb"
+    lines = []
+    if os.path.exists(cfg):
+        with open(cfg, "r") as f:
+            lines = f.readlines()
+    found = False
+    for i, line in enumerate(lines):
+        if line.strip().startswith("DECODER_OPTIONS="):
+            found = True
+            opts = line.split("=",1)[-1].strip().strip('"').strip("'")
+            parts = opts.split()
+
+            def _set(parts, key, val):
+                if key in parts:
+                    idx = parts.index(key)
+                    if idx+1 < len(parts):
+                        parts[idx+1] = f"{val}"
+                else:
+                    parts += [key, f"{val}"]
+                return parts
+
+            parts = _set(parts, "--lat", f"{lat:.8f}")
+            parts = _set(parts, "--lon", f"{lon:.8f}")
+            new_opts = " ".join(parts)
+            lines[i] = f'DECODER_OPTIONS="{new_opts}"\n'
+            break
+    if not found:
+        lines.append(f'DECODER_OPTIONS="--lat {lat:.8f} --lon {lon:.8f}"\n')
+    with open(cfg, "w") as f:
+        f.writelines(lines)
+    subprocess.call(["sudo","systemctl","restart","readsb"])
+
+# ---- auto-fix helpers (NEW) ----
+def _run(cmd_list):
     env = os.environ.copy()
     env["LANG"] = "C"
-    try:
-        p = subprocess.run(cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
-        return p.returncode, (p.stdout or "").strip(), (p.stderr or "").strip()
-    except Exception as e:
-        return 1, "", f"{type(e).__name__}: {e}"
+    p = subprocess.run(cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+    return p.returncode, (p.stdout or "").strip(), (p.stderr or "").strip()
 
 def _sysctl_state(unit="wingbits"):
-    """Return (enabled_state, active_state) from systemd."""
-    rc1, out1, _ = _run_list(["systemctl","is-enabled",unit])
-    rc2, out2, _ = _run_list(["systemctl","is-active",unit])
-    en = (out1 or "unknown").strip()
-    ac = (out2 or "unknown").strip()
-    if rc1 != 0 and not en: en = "unknown"
-    if rc2 != 0 and not ac: ac = "unknown"
-    return en, ac
+    rc1, out1, _ = _run(["systemctl","is-enabled",unit])
+    rc2, out2, _ = _run(["systemctl","is-active",unit])
+    return (out1 or "unknown").strip(), (out2 or "unknown").strip()
 
 def _autofix_wingbits():
-    """
-    Auto-fix for wingbits:
-      - If masked: unmask + enable --now
-      - Else if not active: restart
-    Returns (applied_actions_list, enabled_state, active_state)
-    """
     applied = []
     enabled, active = _sysctl_state("wingbits")
 
@@ -912,11 +980,11 @@ def _autofix_wingbits():
             ["sudo","-n","systemctl","unmask","wingbits"],
             ["sudo","-n","systemctl","enable","--now","wingbits"],
         ]:
-            rc, out, err = _run_list(cmd)
+            rc, out, err = _run(cmd)
             applied.append({"action": " ".join(cmd), "result": (out or err or f"rc={rc}")})
         enabled, active = _sysctl_state("wingbits")
     elif active != "active":
-        rc, out, err = _run_list(["sudo","-n","systemctl","restart","wingbits"])
+        rc, out, err = _run(["sudo","-n","systemctl","restart","wingbits"])
         applied.append({"action": "sudo -n systemctl restart wingbits", "result": (out or err or f"rc={rc}")})
         enabled, active = _sysctl_state("wingbits")
 
@@ -1032,103 +1100,117 @@ def api_troubleshoot_run():
     if not res_ok:
         summary_warnings += 1
 
-    # Summary so far
+    # 11) Location consistency (NEW)
+    gps_raw = _geosigner_info()
+    gps_lat, gps_lon, sats = _parse_geosigner_info_txt(gps_raw)
+    stated_lat, stated_lon = _readsb_config_location()
+    loc_details = "GPS/stated location unavailable."
+    loc_ok = True
+    delta_km = None
+    if gps_lat is not None and gps_lon is not None and stated_lat is not None and stated_lon is not None:
+        try:
+            delta_km = round(_haversine_km(gps_lat, gps_lon, stated_lat, stated_lon), 3)
+            loc_ok = (delta_km <= 0.3)  # 300 m tolerance
+            loc_details = (
+                f"GPS: {gps_lat:.6f},{gps_lon:.6f} (sats={sats or 'n/a'})\n"
+                f"Stated(readsb): {stated_lat:.6f},{stated_lon:.6f}\n"
+                f"Δ = {delta_km} km"
+            )
+        except Exception as _e:
+            loc_ok = False
+            loc_details = f"Failed to compute distance: {_e}"
+    else:
+        loc_ok = False
+
+    checks.append({
+        "id": "location_consistency",
+        "title": "GeoSigner vs stated location",
+        "status": _status_label(loc_ok, warn=not loc_ok),
+        "details": loc_details
+    })
+    if not loc_ok:
+        summary_warnings += 1
+        safe_actions.append((
+            "Apply GPS → readsb location",
+            f"curl -s -X POST http://127.0.0.1:{WEB_PANEL_RUN_PORT}/api/geosigner/apply-location "
+            f"-H 'X-Auth-Token: {CURRENT_SESSION_TOKEN or ''}' -H 'Content-Type: application/json' -d '{{\"source\":\"gps\"}}'"
+        ))
+
+    # Summary
     overall = "OK"
     if summary_fail > 0:
         overall = "ERROR"
     elif summary_warnings > 0:
         overall = "WARN"
 
-    applied = []
-    autofix_state = None
-
-    # --- NEW: masked/enable/start auto-fix for wingbits ---
-    if apply_fix:
-        try:
-            actions, enabled, active = _autofix_wingbits()
-            if actions:
-                applied.extend(actions)
-            autofix_state = {"enabled": enabled, "active": active}
-
-            # If wingbits recovered, drop planned restart for wingbits
-            if enabled == "enabled" and active == "active":
-                safe_actions = [p for p in safe_actions if "wingbits" not in p[1]]
-
-            # Refresh the 'svc_wingbits' check to reflect new state
-            try:
-                refreshed_active = _svc_active("wingbits")
-                for i, c in enumerate(checks):
-                    if c.get("id") == "svc_wingbits":
-                        checks[i] = {
-                            "id":"svc_wingbits",
-                            "title":"wingbits service",
-                            "status": _status_label(refreshed_active),
-                            "details": _status_head("wingbits")
-                        }
-                        break
-            except Exception:
-                pass
-        except Exception as e:
-            applied.append({"action": "autofix_wingbits", "result": f"Error: {e}"})
-
-    # Execute remaining safe actions (restart readsb, etc.)
+    # Execute planned safe actions (restart, etc.)
+    applied_safe = []
     if apply_fix and safe_actions:
         for title, cmd in safe_actions:
             out = run_shell(cmd)
-            applied.append({"action": title, "result": out[:4000]})
+            applied_safe.append({"action": title, "result": out[:4000]})
+
+    # Auto-fix masked/disabled wingbits
+    autofix = {"applied": []}
+    if apply_fix:
+        actions, enabled, active = _autofix_wingbits()
+        autofix["applied"].extend(actions)
+        autofix["state"] = {"enabled": enabled, "active": active}
 
     return jsonify({
         "ok": True,
         "summary": {"overall": overall, "fails": summary_fail, "warnings": summary_warnings},
         "checks": checks,
-        "autofix": {"applied": applied, "planned": [{"title":a, "cmd":c} for a,c in safe_actions], "state": autofix_state}
+        "autofix": {
+            "applied": applied_safe + autofix["applied"],
+            "planned": [{"title": a, "cmd": c} for a, c in safe_actions],
+            "state": autofix.get("state", None)
+        }
     })
 
-# ----------------- Misc Debug Info -----------------
-@app.route('/api/diagnostics/generate-log-link', methods=['POST'])
+# ----------------- NEW GeoSigner APIs -----------------
+@app.route('/api/geosigner/location', methods=['GET'])
 @login_required
-def api_diagnostics_generate_log_link():
-    lang = request.args.get('lang', 'en')
-    data = request.get_json()
-    log_type = data.get('type')
+def api_geosigner_location():
+    raw = run_shell("sudo wingbits geosigner info 2>&1")
+    gps_lat, gps_lon, sats = _parse_geosigner_info_txt(raw)
 
-    if log_type == 'wingbits_readsb':
-        cmd = "sudo journalctl -u wingbits -u readsb -n100000 --no-pager | curl -sS -H \"User-Agent: yes-please/2000\" -F 'file=@-' -F expires=336 https://0x0.st"
-        desc = lang_desc("diagnostics_wingbits_readsb_logs", lang)
-    elif log_type == 'all':
-        cmd = "sudo journalctl -n100000 --no-pager | curl -sS -H \"User-Agent: yes-please/2000\" -F 'file=@-' -F expires=336 https://0x0.st"
-        desc = lang_desc("diagnostics_all_logs", lang)
-    else:
-        return jsonify({'ok': False, 'msg': 'Invalid log type'})
+    # stated: from readsb
+    stated_src = "readsb"
+    stated_lat, stated_lon = _readsb_config_location()
 
-    result = run_shell(cmd)
-    return jsonify({'ok': True, 'result': result, 'desc': desc})
+    delta_km = None
+    if gps_lat is not None and gps_lon is not None and stated_lat is not None and stated_lon is not None:
+        try:
+            delta_km = round(_haversine_km(gps_lat, gps_lon, stated_lat, stated_lon), 3)
+        except Exception:
+            delta_km = None
 
-@app.route('/api/diagnostics/run-command', methods=['POST'])
+    return jsonify({
+        "ok": True,
+        "gps": {"lat": gps_lat, "lon": gps_lon, "satellites": sats},
+        "stated": {"lat": stated_lat, "lon": stated_lon, "source": stated_src},
+        "delta_km": delta_km
+    })
+
+@app.route('/api/geosigner/apply-location', methods=['POST'])
 @login_required
-def api_diagnostics_run_command():
-    lang = request.args.get('lang', 'en')
-    data = request.get_json()
-    command_key = data.get('command')
+def api_geosigner_apply_location():
+    data = request.get_json() or {}
+    source = (data.get("source") or "gps").lower()
+    lat = data.get("lat"); lon = data.get("lon")
 
-    commands = {
-        'os_release': ("cat /etc/os-release", "diagnostics_os_release"),
-        'lsusb': ("lsusb", "diagnostics_lsusb"),
-        'throttled': ("vcgencmd get_throttled", "diagnostics_throttled"),
-        'wingbits_status_verbose': ("sudo wingbits status --verbose", "diagnostics_wingbits_status_verbose"),
-        'geosigner_info': ("sudo wingbits geosigner info", "diagnostics_geosigner_info")
-    }
+    if source == "gps" and (lat is None or lon is None):
+        raw = run_shell("sudo wingbits geosigner info 2>&1")
+        lat, lon, _ = _parse_geosigner_info_txt(raw)
 
-    if command_key in commands:
-        cmd, desc_key = commands[command_key]
-        if command_key == 'throttled' and 'command not found' in run_shell("command -v vcgencmd"):
-            result = "vcgencmd is not available on this system. This command is typically for Raspberry Pi devices."
-        else:
-            result = run_shell(cmd)
-        desc = lang_desc(desc_key, lang)
-        return jsonify({'ok': True, 'result': result, 'desc': desc})
-    else:
-        return jsonify({'ok': False, 'msg': 'Invalid command'})
+    try:
+        if lat is None or lon is None:
+            return jsonify({"ok": False, "msg": "Latitude/Longitude not available"}), 400
+        _set_readsb_location(float(lat), float(lon))
+        return jsonify({"ok": True, "msg": "readsb location updated from GPS & service restarted"})
+    except Exception as e:
+        return jsonify({"ok": False, "msg": str(e)}), 500
 
 # ----------- Frontend files -----------
 @app.route('/', defaults={'path': ''})
@@ -1144,5 +1226,12 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=WEB_PANEL_RUN_PORT)
 EOF
 
-echo "Backend Flask app written."
-echo ""
+echo "Backend Flask app written at: $BACKEND_DIR/app.py"
+
+# Optional: hint for service restart (uncomment if you have a systemd unit named wingbits-web-panel)
+# if systemctl list-units --type=service | grep -q "wingbits-web-panel.service"; then
+#   echo "Restarting wingbits-web-panel service..."
+#   sudo systemctl restart wingbits-web-panel
+# fi
+
+echo "Done."
