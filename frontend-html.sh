@@ -2422,7 +2422,7 @@ ${d.logs || "-"}
                    /data received:\s*0 bytes/.test(t) ||
                    /signal:\s*0\.?0 dB/.test(t)
                  ),
-      dnsFail: /(temporary failure in name resolution|no such host|could not resolve|resolve.*failed|dns.*(fail|error))/i.test(t),
+      dnsFail: /(temporary failure in name resolution|no such host|could not resolve|resolve.*failed|dns.*(fail|error|server misbehaving)(/i.test(t),)
       ntpBad: /ntp.*(unsync|not sync|false)/i.test(t),
       diskLow: /(disk .*(full|low)|no space left)/i.test(t),
       memLow: /(out of memory|oom|low memory)/i.test(t),
