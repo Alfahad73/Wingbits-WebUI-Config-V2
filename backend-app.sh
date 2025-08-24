@@ -781,6 +781,21 @@ def api_shutdown():
     return jsonify({'result': "Device is shutting down...", 'desc': lang_desc("pi_shutdown", lang)})
 
 # ----------------- NEW: SMART TROUBLESHOOTER -----------------
+
+def _readsb_restart_count(hours=24):
+    try:
+        # Count journal entries where readsb actually (re)started in the window
+        cmd = f"journalctl -u readsb --since \"{hours} hours ago\" --no-pager | grep -E \"Started .*readsb|Starting .*readsb\" | wc -l"
+        out = run_shell(cmd)
+        try:
+            return int(str(out).strip().splitlines()[-1])
+        except Exception:
+            # If wc -l isn't available or returns unexpected text
+            m = re.search(r"\b(\d+)\b", str(out))
+            return int(m.group(1)) if m else 0
+    except Exception:
+        return 0
+
 def _svc_active(name):
     try:
         out = subprocess.check_output(['systemctl', 'is-active', name], stderr=subprocess.STDOUT).decode().strip()
@@ -821,9 +836,7 @@ def _parse_readsb_hints(log_text):
         (r'rtlsdr_demod_write_reg failed', "مشكلة اتصال RTL-SDR. تحقق من الكابل والطاقة."),
         (r'usb_claim_interface error', "تعارض برنامج آخر مع الدونجل (dvb_usb_rtl28xxu). جرّب: sudo rmmod dvb_usb_rtl28xxu"),
         (r'gain.*invalid', "قيمة Gain غير صالحة."),
-        (r'network.*error|connection.*refused', "مشكلة شبكة/منفذ لإخراج readsb."),
-        (r'bulk transfer failed|usb.*reset|reset .*speed usb device|lost samples|rtlsdr_read.*failed', 
-         "Possible SDR dropout / USB power instability — check PoE/PSU, use a powered USB hub, shorter/better cable.")
+        (r'network.*error|connection.*refused', "مشكلة شبكة/منفذ لإخراج readsb.")
     ]
     for pat, msg in patterns:
         if re.search(pat, log_text, re.IGNORECASE):
@@ -860,36 +873,6 @@ def _status_label(ok_bool, warn=False):
     if ok_bool and not warn:
         return "OK"
     return "WARN" if warn else "FAIL"
-
-def _uptime_seconds():
-    try:
-        return int(time.time() - psutil.boot_time())
-    except Exception:
-        return 999999
-
-def _dns_lookup_ok(hosts=None, timeout=3):
-    hosts = hosts or ["api.wingbits.com", "feed.wingbits.com"]
-    failures = []
-    for h in hosts:
-        try:
-            socket.gethostbyname(h)
-        except Exception as e:
-            failures.append(f"{h}: {type(e).__name__}")
-    return (len(failures) == 0, failures)
-
-def _journal_since(unit, hours=24):
-    try:
-        return run_shell(f"journalctl -u {unit} --since '{hours} hours ago' --no-pager -o short-iso")
-    except Exception:
-        return ""
-
-def _readsb_restart_count(hours=24):
-    text = _journal_since("readsb", hours)
-    cnt = 0
-    for ln in text.splitlines():
-        if re.search(r'(Starting|Started)\s+readsb', ln, re.IGNORECASE) or 'Scheduled restart job' in ln:
-            cnt += 1
-    return cnt
 
 # -------- Geo location helpers (NEW) --------
 def _haversine_km(lat1, lon1, lat2, lon2):
@@ -1055,24 +1038,6 @@ def api_troubleshoot_run():
         if online: summary_warnings += 1
         else: summary_fail += 1
 
-    # 2.5) DNS resolution (debounced after boot)
-    dns_title = "DNS resolution (debounced after boot)"
-    dns_needed = (not online and not api_ok)
-    if not dns_needed:
-        checks.append({"id": "dns", "title": dns_title, "status": "OK", "details": "Skipped (Internet/API reachable)"})
-    else:
-        boot_age = _uptime_seconds()
-        if boot_age < 180:
-            checks.append({"id":"dns","title":dns_title,"status":"OK","details":"Skipped during initial boot window (~3 min)"})
-        else:
-            ok_dns, fails = _dns_lookup_ok(["api.wingbits.com","feed.wingbits.com"])
-            if ok_dns:
-                checks.append({"id":"dns","title":dns_title,"status":"OK","details":"DNS looks fine."})
-            else:
-                details = "DNS lookup failures:\n" + "\n".join(fails) + "\n\nTips:\n- Try fallback DNS (1.1.1.1, 8.8.8.8) and flush caches: resolvectl flush-caches"
-                checks.append({"id":"dns","title":dns_title,"status":"FAIL","details":details})
-                summary_warnings += 1
-
     # 3) Services basic
     readsb_active = _svc_active("readsb")
     wingbits_active = _svc_active("wingbits")
@@ -1113,7 +1078,38 @@ def api_troubleshoot_run():
         summary_warnings += 1
         safe_actions.append(("Restart readsb (no data)","sudo systemctl restart readsb"))
 
-    # 6) readsb recent log hints
+    
+    # 5.1) readsb restarts (last 24h)
+    try:
+        rs = _readsb_restart_count(24)
+        avg_h = (24.0/rs) if rs > 0 else None
+        # Classification: Warning if ~ once every 2–4 hours (6–12/day), Fail if more frequent (>12/day)
+        status = "OK"
+        note = ""
+        if rs == 0:
+            status = "OK"
+            note = "no restarts observed in the last 24h"
+        elif rs <= 5:
+            status = "OK"
+            note = "occasional restarts (<=5)"
+        elif 6 <= rs <= 12:
+            status = "WARN"
+            note = "frequency ~ once every 2–4 hours (warning threshold)"
+        else:
+            status = "FAIL"
+            note = "frequency > once every 2 hours (fail threshold)"
+        freq = f" ~ every {avg_h:.1f}h" if avg_h else ""
+        details = f"restart events counted in journal: {rs}{freq}\n{note}"
+        details += "\nGuidance: frequent restarts often indicate power/USB instability for the SDR."
+        checks.append({"id":"readsb_restarts_24h","title":"readsb restarts (last 24h)","status":status,"details":details})
+        if status == "WARN":
+            summary_warnings += 1
+        elif status == "FAIL":
+            summary_fail += 1
+    except Exception as _e:
+        checks.append({"id":"readsb_restarts_24h","title":"readsb restarts (last 24h)","status":"WARN","details":f"Could not compute restarts: {_e}"})
+        summary_warnings += 1
+# 6) readsb recent log hints
     readsb_log = _journal_tail("readsb", n=200)
     hints = _parse_readsb_hints(readsb_log)
     hint_status = "OK" if not hints else "WARN"
@@ -1121,25 +1117,12 @@ def api_troubleshoot_run():
     if hints:
         summary_warnings += 1
 
-    # 6.5) readsb restart count (last 24h)
-    try:
-        restarts_24h = _readsb_restart_count(24)
-    except Exception:
-        restarts_24h = None
-    if restarts_24h is not None:
-        status = "OK" if restarts_24h == 0 else ("WARN" if restarts_24h < 3 else "FAIL")
-        checks.append({
-            "id": "readsb_restarts",
-            "title": "readsb restarts (last 24h)",
-            "status": status,
-            "details": f"restart events counted in journal: {restarts_24h}"
-        })
-        if restarts_24h >= 3:
-            summary_warnings += 1
-
     # 7) Wingbits detailed status
     wb_verbose = _wb_status_verbose()
-    checks.append({"id":"wb_verbose","title":"wingbits detailed status","status":"OK","details":wb_verbose})
+    has_upd_fail = bool(re.search(r'update check failed', wb_verbose, re.I))
+    wb_status = _status_label(True, warn=has_upd_fail)
+    extra = "\nNote: Update check failed (non-critical). Marked as warning." if has_upd_fail else ""
+    checks.append({"id":"wb_verbose","title":"wingbits detailed status","status":wb_status,"details":wb_verbose + extra})
 
     # --- GeoSigner details used by the next two cards ---
     gps_raw = _geosigner_info()
