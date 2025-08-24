@@ -667,7 +667,8 @@ body.rtl .diagnostics-section {
 
               <!-- NEW: Updates (Check for Updates) -->
               <button class="${supportSub==='updates'?'active':''}" data-key="support_menu" data-sub="updates" onclick="renderMenuPage('support_menu','updates')">${txt[LANG].check_updates}</button>
-            </div>
+
+</div>
           `;
         }
       }
@@ -2357,15 +2358,12 @@ ${d.logs || "-"}
   function _wb_inferStatus(details, status){
     const t = (details || '').toLowerCase();
 
-    // Benign: readsb net-connector tries to reach local consumer at boot
-    // e.g., "Connection to localhost (127.0.0.1) port 30006 failed (3): 111 (Connection refused)"
-    // Don't treat this as a hard failure; downgrade to WARN at most.
+    
+    // Benign readsb net-connector: local consumer on port 30006 may not be up yet at boot
     if (/connection to localhost .*port 30006 .*failed.*(111|connection refused)/i.test(details || '')) {
       return status && status !== 'OK' ? 'WARN' : (status || 'WARN');
     }
-
-
-    if (t.includes('warning') && (t.includes('ignored') || t.includes('cleared')))
+if (t.includes('warning') && (t.includes('ignored') || t.includes('cleared')))
       return status || 'OK';
 
     const hard = t.includes('failed') || t.includes('error')
@@ -2422,7 +2420,7 @@ ${d.logs || "-"}
                    /data received:\s*0 bytes/.test(t) ||
                    /signal:\s*0\.?0 dB/.test(t)
                  ),
-      dnsFail: /(temporary failure in name resolution|no such host|could not resolve|resolve.*failed|dns.*(fail|error|server misbehaving))/i.test(t),)
+      dnsFail: /(temporary failure in name resolution|no such host|could not resolve|resolve.*failed|dns.*(fail|error)|server misbehaving)/i.test(t),
       ntpBad: /ntp.*(unsync|not sync|false)/i.test(t),
       diskLow: /(disk .*(full|low)|no space left)/i.test(t),
       memLow: /(out of memory|oom|low memory)/i.test(t),
