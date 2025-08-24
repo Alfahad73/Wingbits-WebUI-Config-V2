@@ -821,7 +821,9 @@ def _parse_readsb_hints(log_text):
         (r'rtlsdr_demod_write_reg failed', "مشكلة اتصال RTL-SDR. تحقق من الكابل والطاقة."),
         (r'usb_claim_interface error', "تعارض برنامج آخر مع الدونجل (dvb_usb_rtl28xxu). جرّب: sudo rmmod dvb_usb_rtl28xxu"),
         (r'gain.*invalid', "قيمة Gain غير صالحة."),
-        (r'network.*error|connection.*refused', "مشكلة شبكة/منفذ لإخراج readsb.")
+        (r'network.*error|connection.*refused', "مشكلة شبكة/منفذ لإخراج readsb."),
+        (r'bulk transfer failed|usb.*reset|reset .*speed usb device|lost samples|rtlsdr_read.*failed', 
+         "Possible SDR dropout / USB power instability — check PoE/PSU, use a powered USB hub, shorter/better cable.")
     ]
     for pat, msg in patterns:
         if re.search(pat, log_text, re.IGNORECASE):
@@ -858,6 +860,36 @@ def _status_label(ok_bool, warn=False):
     if ok_bool and not warn:
         return "OK"
     return "WARN" if warn else "FAIL"
+
+def _uptime_seconds():
+    try:
+        return int(time.time() - psutil.boot_time())
+    except Exception:
+        return 999999
+
+def _dns_lookup_ok(hosts=None, timeout=3):
+    hosts = hosts or ["api.wingbits.com", "feed.wingbits.com"]
+    failures = []
+    for h in hosts:
+        try:
+            socket.gethostbyname(h)
+        except Exception as e:
+            failures.append(f"{h}: {type(e).__name__}")
+    return (len(failures) == 0, failures)
+
+def _journal_since(unit, hours=24):
+    try:
+        return run_shell(f"journalctl -u {unit} --since '{hours} hours ago' --no-pager -o short-iso")
+    except Exception:
+        return ""
+
+def _readsb_restart_count(hours=24):
+    text = _journal_since("readsb", hours)
+    cnt = 0
+    for ln in text.splitlines():
+        if re.search(r'(Starting|Started)\s+readsb', ln, re.IGNORECASE) or 'Scheduled restart job' in ln:
+            cnt += 1
+    return cnt
 
 # -------- Geo location helpers (NEW) --------
 def _haversine_km(lat1, lon1, lat2, lon2):
@@ -1023,6 +1055,24 @@ def api_troubleshoot_run():
         if online: summary_warnings += 1
         else: summary_fail += 1
 
+    # 2.5) DNS resolution (debounced after boot)
+    dns_title = "DNS resolution (debounced after boot)"
+    dns_needed = (not online and not api_ok)
+    if not dns_needed:
+        checks.append({"id": "dns", "title": dns_title, "status": "OK", "details": "Skipped (Internet/API reachable)"})
+    else:
+        boot_age = _uptime_seconds()
+        if boot_age < 180:
+            checks.append({"id":"dns","title":dns_title,"status":"OK","details":"Skipped during initial boot window (~3 min)"})
+        else:
+            ok_dns, fails = _dns_lookup_ok(["api.wingbits.com","feed.wingbits.com"])
+            if ok_dns:
+                checks.append({"id":"dns","title":dns_title,"status":"OK","details":"DNS looks fine."})
+            else:
+                details = "DNS lookup failures:\n" + "\n".join(fails) + "\n\nTips:\n- Try fallback DNS (1.1.1.1, 8.8.8.8) and flush caches: resolvectl flush-caches"
+                checks.append({"id":"dns","title":dns_title,"status":"FAIL","details":details})
+                summary_warnings += 1
+
     # 3) Services basic
     readsb_active = _svc_active("readsb")
     wingbits_active = _svc_active("wingbits")
@@ -1070,6 +1120,22 @@ def api_troubleshoot_run():
     checks.append({"id":"readsb_hints","title":"readsb recent log hints","status":hint_status,"details":("No obvious errors." if not hints else "\n".join(hints) + "\n\nSee Support → readsb logs for details")})
     if hints:
         summary_warnings += 1
+
+    # 6.5) readsb restart count (last 24h)
+    try:
+        restarts_24h = _readsb_restart_count(24)
+    except Exception:
+        restarts_24h = None
+    if restarts_24h is not None:
+        status = "OK" if restarts_24h == 0 else ("WARN" if restarts_24h < 3 else "FAIL")
+        checks.append({
+            "id": "readsb_restarts",
+            "title": "readsb restarts (last 24h)",
+            "status": status,
+            "details": f"restart events counted in journal: {restarts_24h}"
+        })
+        if restarts_24h >= 3:
+            summary_warnings += 1
 
     # 7) Wingbits detailed status
     wb_verbose = _wb_status_verbose()
