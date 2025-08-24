@@ -2403,7 +2403,7 @@ ${d.logs || "-"}
   function _wb_buildNextSteps(title, details, status){
     const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
     const t = (details || '').toLowerCase();
-    const isFail = status === 'FAIL' || /failed|error|✗|×/i.test(details || '');
+    const isFail = status === 'FAIL' || ((/failed|error|✗|×/i.test(details || '')) && !(/update check failed/i.test(details || '')));
     if (!isFail) return '';
 
     const cues = {
