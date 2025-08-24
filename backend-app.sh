@@ -16,7 +16,6 @@ cat > "$BACKEND_DIR/app.py" << 'EOF'
 import os
 import subprocess
 import re
-import glob
 import time
 import json
 import platform
@@ -33,7 +32,7 @@ sys.stdout = open(os.devnull, 'w')
 sys.stderr = open(os.devnull, 'w')
 
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import jsonify, make_response
+from flask import jsonify
 from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -131,7 +130,7 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         global CURRENT_SESSION_TOKEN
         auth_token = request.headers.get('X-Auth-Token')
-        if not auth_token or not auth_token == CURRENT_SESSION_TOKEN:
+        if not auth_token or auth_token != CURRENT_SESSION_TOKEN:
             return jsonify({'ok': False, 'msg': 'Unauthorized'}), 401
         return f(*args, **kwargs)
     return decorated_function
@@ -680,23 +679,6 @@ def api_alerts():
     except:
         pass
 
-    logfiles = [
-        ("/var/log/wingbits.log", "wingbits"),
-        ("/var/log/readsb.log", "readsb"),
-        ("/var/log/tar1090.log", "tar1090"),
-    ]
-    keywords = re.compile(r"(ERROR|FATAL|FAIL|WARNING|WARN)", re.IGNORECASE)
-    for logfile, label in logfiles:
-        if os.path.exists(logfile):
-            try:
-                lines = subprocess.check_output(["tail", "-n", "200", logfile]).decode(errors="ignore").splitlines()
-                for line in lines:
-                    if keywords.search(line):
-                        if not any(line in a for a in alerts):
-                            alerts.append(f"[{label}] {line.strip()[:400]}")
-            except:
-                pass
-
     return {"ok": True, "alerts": alerts}
 
 @app.route('/api/status/check')
@@ -896,6 +878,19 @@ def _parse_geosigner_info_txt(txt):
     if m: sats = int(m.group(1))
     return lat, lon, sats
 
+def _parse_geosigner_meta(txt):
+    gs_id = None
+    gs_ver = None
+    # version like "geosigner-1.0.1"
+    m = re.search(r'\bgeosigner-[0-9.]+\b', txt, re.I)
+    if m: gs_ver = m.group(0)
+    # explicit "ID:" or "Device ID:"
+    m = re.search(r'(?:GeoSigner\s*ID|Device\s*ID|ID)\s*[:=]\s*([0-9A-F]{10,})', txt, re.I)
+    if not m:
+        m = re.search(r'\b([0-9A-F]{12,})\b', txt, re.I)
+    if m: gs_id = m.group(1)
+    return gs_id, gs_ver
+
 def _readsb_config_location():
     lat, lon = None, None
     config_path = "/etc/default/readsb"
@@ -1082,31 +1077,29 @@ def api_troubleshoot_run():
     wb_verbose = _wb_status_verbose()
     checks.append({"id":"wb_verbose","title":"wingbits detailed status","status":"OK","details":wb_verbose})
 
-    # 8) GeoSigner info
-    geo_txt = _geosigner_info()
-    checks.append({"id":"geosigner","title":"GeoSigner","status":"OK","details":geo_txt})
+    # --- GeoSigner details used by multiple checks ---
+    gps_raw = _geosigner_info()
+    gps_lat, gps_lon, sats = _parse_geosigner_info_txt(gps_raw)
+    gs_id, gs_ver = _parse_geosigner_meta(gps_raw)
 
-    # 9) Time sync (NTP)
+    # 8) Time sync (NTP)
     ntp_ok = _ntp_synced()
     checks.append({"id":"ntp","title":"Time sync (NTP)","status":_status_label(ntp_ok),"details":f"NTPSynchronized={ntp_ok}"})
     if not ntp_ok:
         summary_warnings += 1
         safe_actions.append(("Enable NTP sync","sudo timedatectl set-ntp true ; sudo systemctl restart systemd-timesyncd || true"))
 
-    # 10) Resources
+    # 9) Resources
     res = _summarize_resources()
     res_ok = (res["disk_free_gb"] > 1 and res["ram_free_mb"] > 64)
     checks.append({"id":"resources","title":"Resources (disk/memory)","status":_status_label(res_ok, warn=not res_ok),"details":f"Disk free: {res['disk_free_gb']} GB\nRAM free: {res['ram_free_mb']} MB"})
     if not res_ok:
         summary_warnings += 1
 
-    # 11) Location consistency (NEW)
-    gps_raw = _geosigner_info()
-    gps_lat, gps_lon, sats = _parse_geosigner_info_txt(gps_raw)
+    # 10) Location consistency (GeoSigner vs stated)
     stated_lat, stated_lon = _readsb_config_location()
     loc_details = "GPS/stated location unavailable."
     loc_ok = True
-    delta_km = None
     if gps_lat is not None and gps_lon is not None and stated_lat is not None and stated_lon is not None:
         try:
             delta_km = round(_haversine_km(gps_lat, gps_lon, stated_lat, stated_lon), 3)
@@ -1130,11 +1123,24 @@ def api_troubleshoot_run():
     })
     if not loc_ok:
         summary_warnings += 1
-        safe_actions.append((
-            "Apply GPS → readsb location",
-            f"curl -s -X POST http://127.0.0.1:{WEB_PANEL_RUN_PORT}/api/geosigner/apply-location "
-            f"-H 'X-Auth-Token: {CURRENT_SESSION_TOKEN or ''}' -H 'Content-Type: application/json' -d '{{\"source\":\"gps\"}}'"
-        ))
+        # NOTE: intentionally do NOT add any auto-fix action for location mismatch.
+
+    # 11) GeoSigner brief (requested card shown right after location card)
+    ok_gs = (gps_lat is not None and gps_lon is not None and (sats or 0) > 0)
+    lat_s = f"{gps_lat:.6f}" if gps_lat is not None else "n/a"
+    lon_s = f"{gps_lon:.6f}" if gps_lon is not None else "n/a"
+    sat_s = f"{sats}" if sats is not None else "n/a"
+    ready_line = "✓ GeoSigner is ready to use" if ok_gs else "GeoSigner not ready (no fix yet)"
+    gs_details = (
+        f"GeoSigner ID: {gs_id or 'unknown'}\n"
+        f"GeoSigner Version: {gs_ver or 'unknown'}\n"
+        f"Location data: Latitude: {lat_s}, Longitude: {lon_s}, Satellites: {sat_s}\n"
+        f"{ready_line}"
+    )
+    checks.append({"id":"geosigner_brief","title":"GeoSigner","status":_status_label(ok_gs),"details":gs_details})
+
+    # 12) (optional) Raw GeoSigner info for deep debug
+    checks.append({"id":"geosigner_raw","title":"GeoSigner (raw info)","status":"OK","details":gps_raw})
 
     # Summary
     overall = "OK"
@@ -1143,14 +1149,14 @@ def api_troubleshoot_run():
     elif summary_warnings > 0:
         overall = "WARN"
 
-    # Execute planned safe actions (restart, etc.)
+    # Execute planned safe actions (restart services etc.)
     applied_safe = []
     if apply_fix and safe_actions:
         for title, cmd in safe_actions:
             out = run_shell(cmd)
             applied_safe.append({"action": title, "result": out[:4000]})
 
-    # Auto-fix masked/disabled wingbits
+    # Auto-fix for masked/disabled wingbits ONLY
     autofix = {"applied": []}
     if apply_fix:
         actions, enabled, active = _autofix_wingbits()
@@ -1227,11 +1233,4 @@ if __name__ == "__main__":
 EOF
 
 echo "Backend Flask app written at: $BACKEND_DIR/app.py"
-
-# Optional: hint for service restart (uncomment if you have a systemd unit named wingbits-web-panel)
-# if systemctl list-units --type=service | grep -q "wingbits-web-panel.service"; then
-#   echo "Restarting wingbits-web-panel service..."
-#   sudo systemctl restart wingbits-web-panel
-# fi
-
 echo "Done."
