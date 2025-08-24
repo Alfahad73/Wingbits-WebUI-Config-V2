@@ -629,7 +629,7 @@ def system_info():
             sdr_status = "not_connected"
 
         info["sdr_status"] = sdr_status
-        return jsonify({"ok": True, "info": info, "autofix": autofix })
+        return jsonify({"ok": True, "info": info})
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)})
 
@@ -974,122 +974,6 @@ def _run(cmd_list):
     p = subprocess.run(cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
     return p.returncode, (p.stdout or "").strip(), (p.stderr or "").strip()
 
-
-
-def _file_exists(path):
-    try:
-        return os.path.exists(path)
-    except Exception:
-        return False
-
-def _which(cmd):
-    for p in os.environ.get("PATH","/usr/sbin:/usr/bin:/sbin:/bin").split(":"):
-        fp=os.path.join(p,cmd)
-        if os.path.exists(fp) and os.access(fp, os.X_OK):
-            return fp
-    return None
-
-def _read_file(path, default=""):
-    try:
-        with open(path,"r",encoding="utf-8", errors="ignore") as fh:
-            return fh.read()
-    except Exception:
-        return default
-
-def _dns_check():
-    # Return (ok, details, uses_resolved)
-    uses_resolved = False
-    resolvectl = _which("resolvectl")
-    details_lines = []
-    try:
-        # Try resolving api.wingbits.com
-        import socket as _socket
-        start=time.time()
-        addrs = _socket.getaddrinfo("api.wingbits.com", 443, proto=_socket.IPPROTO_TCP)
-        took = (time.time()-start)*1000.0
-        ok = True if addrs else False
-        details_lines.append(f"Resolve api.wingbits.com => OK ({len(addrs)} records) in {took:.0f} ms")
-    except Exception as e:
-        ok = False
-        details_lines.append(f"Resolve api.wingbits.com => FAIL ({e})")
-
-    if resolvectl:
-        uses_resolved = True
-        rc, out, err = _run(["resolvectl","status"])
-        details_lines.append("--- resolvectl status ---")
-        details_lines.append(out or err or f"rc={rc}")
-    else:
-        details_lines.append("--- /etc/resolv.conf ---")
-        details_lines.append(_read_file("/etc/resolv.conf","(unavailable)"))
-
-    return ok, "\n".join(details_lines), uses_resolved
-
-def _autofix_dns():
-    applied=[]
-    ok, _, uses_resolved = _dns_check()
-
-    # If already OK, nothing to do
-    if ok:
-        return applied, True
-
-    # Prefer systemd-resolved path if present
-    if uses_resolved:
-        # Ensure drop-in exists with sane DNS servers
-        rc, out, err = _run(["sudo","-n","mkdir","-p","/etc/systemd/resolved.conf.d"])
-        applied.append({"action":"sudo -n mkdir -p /etc/systemd/resolved.conf.d","result": (out or err or f"rc={rc}")})
-        # Write drop-in
-        conf = "[Resolve]\\nDNS=1.1.1.1 1.0.0.1\\nFallbackDNS=8.8.8.8 8.8.4.4\\nDNSSEC=no\\n"
-        tmp = "/tmp/wingbits-dns.conf"
-        try:
-            with open(tmp,"w",encoding="utf-8") as fh:
-                fh.write(conf)
-            rc, out, err = _run(["sudo","-n","cp",tmp,"/etc/systemd/resolved.conf.d/wingbits-dns.conf"])
-            applied.append({"action":"sudo -n cp /tmp/wingbits-dns.conf /etc/systemd/resolved.conf.d/wingbits-dns.conf","result": (out or err or f"rc={rc}")})
-        except Exception as e:
-            applied.append({"action":"write /tmp/wingbits-dns.conf","result": str(e)})
-        # Try flushing + restarting resolver
-        if _which("resolvectl"):
-            rc, out, err = _run(["sudo","-n","resolvectl","flush-caches"])
-            applied.append({"action":"sudo -n resolvectl flush-caches","result": (out or err or f"rc={rc}")})
-        rc, out, err = _run(["sudo","-n","systemctl","restart","systemd-resolved"])
-        applied.append({"action":"sudo -n systemctl restart systemd-resolved","result": (out or err or f"rc={rc}")})
-        # Fix common symlink issues
-        if not os.path.islink("/etc/resolv.conf"):
-            # Replace with stub if available; else basic resolv.conf
-            if _file_exists("/run/systemd/resolve/stub-resolv.conf"):
-                rc, out, err = _run(["sudo","-n","mv","-f","/etc/resolv.conf","/etc/resolv.conf.backup_"+str(int(time.time()))])
-                applied.append({"action":"backup /etc/resolv.conf","result": (out or err or f"rc={rc}")})
-                rc, out, err = _run(["sudo","-n","ln","-sf","/run/systemd/resolve/stub-resolv.conf","/etc/resolv.conf"])
-                applied.append({"action":"sudo -n ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf","result": (out or err or f"rc={rc}")})
-        # Re-check
-        ok2, _, _ = _dns_check()
-        if not ok2:
-            # Last resort: link to /run/systemd/resolve/resolv.conf
-            if _file_exists("/run/systemd/resolve/resolv.conf"):
-                rc, out, err = _run(["sudo","-n","ln","-sf","/run/systemd/resolve/resolv.conf","/etc/resolv.conf"])
-                applied.append({"action":"sudo -n ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf","result": (out or err or f"rc={rc}")})
-                ok2, _, _ = _dns_check()
-        ok = ok2
-    else:
-        # Fallback: write resolv.conf with public resolvers
-        content = "nameserver 1.1.1.1\\nnameserver 1.0.0.1\\nnameserver 8.8.8.8\\n"
-        tmp = "/tmp/resolv.conf.wingbits"
-        try:
-            with open(tmp,"w",encoding="utf-8") as fh:
-                fh.write(content)
-            rc, out, err = _run(["sudo","-n","cp",tmp,"/etc/resolv.conf"])
-            applied.append({"action":"sudo -n cp /tmp/resolv.conf.wingbits /etc/resolv.conf","result": (out or err or f"rc={rc}")})
-        except Exception as e:
-            applied.append({"action":"write /tmp/resolv.conf.wingbits","result": str(e)})
-        # Re-check
-        ok, _, _ = _dns_check()
-
-    # If DNS OK now, restart wingbits to clear onboarding loop
-    if ok:
-        rc, out, err = _run(["sudo","-n","systemctl","restart","wingbits"])
-        applied.append({"action":"sudo -n systemctl restart wingbits","result": (out or err or f"rc={rc}")})
-
-    return applied, ok
 def _sysctl_state(unit="wingbits"):
     rc1, out1, _ = _run(["systemctl","is-enabled",unit])
     rc2, out2, _ = _run(["systemctl","is-active",unit])
@@ -1137,16 +1021,6 @@ def api_troubleshoot_run():
         "details": f"http(s) to 1.1.1.1 => {'OK' if online else 'UNREACHABLE'}"
     })
     if not online:
-        summary_fail += 1
-
-    # 1b) DNS resolution
-    dns_ok, dns_details, _uses_resolved = _dns_check()
-    checks.append({
-        "id":"dns","title":"DNS resolution",
-        "status": _status_label(dns_ok, warn=(not dns_ok and online)),
-        "details": dns_details
-    })
-    if not dns_ok:
         summary_fail += 1
 
     # 2) Wingbits API
@@ -1330,12 +1204,6 @@ def api_troubleshoot_run():
     if apply_fix:
         actions, enabled, active = _autofix_wingbits()
         autofix["applied"].extend(actions)
-        # DNS auto-fix if resolver broken
-        d_ok, _, _ = _dns_check()
-        if not d_ok:
-            actions2, dns_now_ok = _autofix_dns()
-            autofix["applied"].extend(actions2)
-
         autofix["state"] = {"enabled": enabled, "active": active}
 
     return jsonify({
