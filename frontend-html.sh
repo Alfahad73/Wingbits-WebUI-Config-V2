@@ -667,9 +667,6 @@ body.rtl .diagnostics-section {
 
               <!-- NEW: Updates (Check for Updates) -->
               <button class="${supportSub==='updates'?'active':''}" data-key="support_menu" data-sub="updates" onclick="renderMenuPage('support_menu','updates')">${txt[LANG].check_updates}</button>
-
-              <!-- Existing: Update Client (logs modal/polling) -->
-              <button class="${supportSub==='update_client'?'active':''}" data-key="support_menu" data-sub="update_client" onclick="confirmUpdateClient()">${LANG === 'ar' ? 'تحديث العميل' : 'Update Client'}</button>
             </div>
           `;
         }
@@ -2359,6 +2356,14 @@ ${d.logs || "-"}
   // Infer status from text (ignore cleared/ignored warnings)
   function _wb_inferStatus(details, status){
     const t = (details || '').toLowerCase();
+
+    // Benign: readsb net-connector tries to reach local consumer at boot
+    // e.g., "Connection to localhost (127.0.0.1) port 30006 failed (3): 111 (Connection refused)"
+    // Don't treat this as a hard failure; downgrade to WARN at most.
+    if (/connection to localhost .*port 30006 .*failed.*(111|connection refused)/i.test(details || '')) {
+      return status && status !== 'OK' ? 'WARN' : (status || 'WARN');
+    }
+
 
     if (t.includes('warning') && (t.includes('ignored') || t.includes('cleared')))
       return status || 'OK';
