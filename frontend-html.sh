@@ -1207,93 +1207,6 @@ body.rtl .diagnostics-section {
       callAPI('/api/service/wingbits/last-install-log', 'GET', null, 'result-installlog');
     }
 
-    // Confirm Wingbits Client update with logs panel
-    function confirmUpdateClient() {
-      showCustomConfirm(txt[LANG].confirm_update_client, async (confirmed) => {
-        if (confirmed) {
-          const mainContent = document.getElementById("main-content");
-          if (!mainContent) return;
-
-          mainContent.innerHTML = `
-            <h2>${txt[LANG].update_client_progress}</h2>
-            <div id="update-status-message" style="margin-bottom:15px;font-weight:bold;">${txt[LANG].update_started}</div>
-            <div id="update-log-display" class="result-block" style="min-height:200px;">${txt[LANG].update_log_placeholder}</div>
-            <button class="action" onclick="stopUpdatePolling()" style="margin-top:20px;" id="stop-update-btn">${LANG === 'ar' ? 'إيقاف عرض السجلات' : 'Stop Viewing Logs'}</button>
-          `;
-          document.getElementById('stop-update-btn').style.display = 'block';
-
-          const response = await callAPI('/api/service/wingbits/update-client', 'POST', null, null, true);
-          const statusMessageEl = document.getElementById('update-status-message');
-          if (response && response.ok) {
-            if (statusMessageEl) statusMessageEl.style.color = 'blue';
-            startUpdatePolling();
-          } else {
-            if (statusMessageEl) {
-              statusMessageEl.style.color = 'red';
-              statusMessageEl.innerText = response.msg || txt[LANG].update_failed;
-            }
-            document.getElementById('stop-update-btn').style.display = 'block';
-          }
-        }
-      });
-    }
-
-    function startUpdatePolling() {
-      if (updateLogTimer) {
-        clearInterval(updateLogTimer);
-        updateLogTimer = null;
-      }
-
-      const logDisplayEl = document.getElementById('update-log-display');
-      const statusMessageEl = document.getElementById('update-status-message');
-      if (logDisplayEl) logDisplayEl.innerText = txt[LANG].fetching_logs;
-
-      const fetchLogs = async () => {
-        const response = await callAPI('/api/service/wingbits/update-logs', 'GET', null, null, true);
-        if (response && response.ok) {
-          if (logDisplayEl) {
-            logDisplayEl.innerHTML = escapeHTML(response.logs);
-            logDisplayEl.scrollTop = logDisplayEl.scrollHeight;
-          }
-          if (response.status === 'finished' || response.status === 'not_started') {
-            stopUpdatePolling();
-            if (statusMessageEl) {
-                if (response.logs.includes("error") || response.logs.includes("failed") || response.logs.includes("Error:") || response.logs.includes("Failed")) { 
-                    statusMessageEl.style.color = 'red';
-                    statusMessageEl.innerText = txt[LANG].update_failed;
-                } else {
-                    statusMessageEl.style.color = 'green';
-                    statusMessageEl.innerText = txt[LANG].update_finished;
-                }
-            }
-          } else {
-            if (statusMessageEl) {
-              statusMessageEl.style.color = 'blue';
-              statusMessageEl.innerText = txt[LANG].update_started;
-            }
-          }
-        } else {
-          stopUpdatePolling();
-          if (statusMessageEl) {
-            statusMessageEl.style.color = 'red';
-            statusMessageEl.innerText = response.msg || txt[LANG].update_failed;
-          }
-        }
-      };
-
-      fetchLogs();
-      updateLogTimer = setInterval(fetchLogs, 3000);
-    }
-
-    function stopUpdatePolling() {
-      if (updateLogTimer) {
-        clearInterval(updateLogTimer);
-        updateLogTimer = null;
-      }
-      const stopBtn = document.getElementById('stop-update-btn');
-      if (stopBtn) stopBtn.style.display = 'none';
-    }
-
     // Modal to update/reinstall specific components
     function openUpdateModal() {
       let old = document.getElementById('update-modal');
@@ -2185,7 +2098,7 @@ ${d.logs || "-"}
             ${mkLine(txt[LANG].current_version, installed.wingbits || txt[LANG].unknown)}
             ${mkLine(txt[LANG].latest_version, latest.wingbits || txt[LANG].unknown)}
             ${wingHas
-              ? `<div style="margin-top:10px"><button class="action" onclick="confirmUpdateClient()">${txt[LANG].update_wingbits_now}</button></div>`
+              ? `<div style="margin-top:10px"><button class="action" onclick="updateWingbitsNow()">${txt[LANG].update_wingbits_now}</button></div>`
               : `<div style="margin-top:10px;color:#2e7d32">${txt[LANG].wingbits_up_to_date}</div>`
             }
           </div>
@@ -2207,7 +2120,7 @@ ${d.logs || "-"}
     }
 
     // Update Panel (Web UI) using existing backend reinstall endpoint
-    async function updatePanelNow(){
+    async function updatePanelNow( {){
       const ok = await new Promise(resolve => {
         showCustomConfirm(LANG==='ar'?'تأكيد تحديث سكربت اللوحة؟':'Confirm updating the Panel script?', r => resolve(r));
       });
@@ -2332,6 +2245,32 @@ ${d.logs || "-"}
       checkAuthAndRender();
     }
   </script>
+
+
+<script>
+// Update Wingbits client from Updates page (no separate Update Client page)
+async function updateWingbitsNow(){
+  const ok = await new Promise(resolve => {
+    showCustomConfirm(LANG==='ar'?'تأكيد تحديث عميل Wingbits؟':'Confirm updating Wingbits client?', r => resolve(r));
+  });
+  if (!ok) return;
+  try{
+    const resp = await fetch('/api/service/wingbits/update-client', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Auth-Token': AUTH_TOKEN},
+      body: JSON.stringify({source: 'updates_page'})
+    });
+    const js = await resp.json();
+    if (js && js.ok){
+      showCustomAlert(LANG==='ar'?'تم بدء تحديث عميل Wingbits. راجع سجلات الخدمة لرصد التقدم.':'Wingbits update started. Check service logs to monitor progress.');
+    } else {
+      showCustomAlert((LANG==='ar'?'فشل التحديث: ':'Update failed: ') + (js && (js.msg||js.result) || 'Unknown error'));
+    }
+  }catch(e){
+    showCustomAlert((LANG==='ar'?'خطأ: ':'Error: ')+e.message);
+  }
+}
+</script>
 
 <!-- ===== Smart Troubleshooter injection (enhanced) ===== -->
 <script id="WB_TS_V3_INJECTION">
