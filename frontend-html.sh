@@ -791,6 +791,10 @@ body.rtl .diagnostics-section {
             <div>
                 <canvas id="liveChart" style="width:100%;max-width:1000px;height:180px;display:block;margin:auto"></canvas>
             </div>
+            <div id="live-values" style="padding:14px 0 0 0;margin:0;display:flex;flex-direction:column;align          tabcontentLive.innerHTML = `
+            <div>
+                <canvas id="liveChart" style="width:100%;max-width:1000px;height:180px;display:block;margin:auto"></canvas>
+            </div>
             <div id="live-values" style="padding:14px 0 0 0;margin:0;display:flex;flex-direction:column;align-items:center;gap:5px;"></div>
             <div style="display:flex;justify-content:center;gap:12px;margin-bottom:18px;">
                 <button class="action" onclick="updateLiveStats(true)">${LANG === "ar" ? "تحديث الآن" : "Refresh Now"}</button>
@@ -825,29 +829,29 @@ body.rtl .diagnostics-section {
 
                 <div style="margin-bottom:20px">
                 <button class="action" onclick="openUpdateModal()">
-            ${LANG === "ar" ? "تثبيت/تحديث المكونات" : "Update/Reinstall Components"}
-          </button>
+                  ${LANG === "ar" ? "تثبيت/تحديث المكونات" : "Update/Reinstall Components"}
+                </button>
                 <span id="reinstall-all-status" style="margin-left:12px;color:blue"></span>
                 </div>
 
                 <div style="margin-bottom:20px">
-            <h4 style="margin:8px 0 8px 0">${LANG === "ar" ? "إصدارات الخدمات" : "Client/Feeder Versions"}</h4>
-            <div id="feeder-versions-block" style="font-family:monospace"></div>
-            <button class="action" onclick="loadFeederVersions()" id="refresh-versions-btn">
-              ${LANG==="ar" ? "تحديث إصدارات الخدمات" : "Refresh Versions"}
-            </button>
-          </div>
+                  <h4 style="margin:8px 0 8px 0">${LANG === "ar" ? "إصدارات الخدمات" : "Client/Feeder Versions"}</h4>
+                  <div id="feeder-versions-block" style="font-family:monospace"></div>
+                  <button class="action" onclick="loadFeederVersions()" id="refresh-versions-btn">
+                    ${LANG==="ar" ? "تحديث إصدارات الخدمات" : "Refresh Versions"}
+                  </button>
+                </div>
 
                 <div style="margin-bottom:20px">
-            <h4 style="margin:8px 0 8px 0">${LANG==="ar"?"حالة النظام والخدمات":"System/Service Status"}</h4>
-            <div id="status-block" style="font-family:monospace"></div>
-            <button class="action" onclick="loadStatusBlock()">${LANG==="ar"?"تحديث الحالة":"Refresh Status"}</button>
-          </div>
+                  <h4 style="margin:8px 0 8px 0">${LANG==="ar"?"حالة النظام والخدمات":"System/Service Status"}</h4>
+                  <div id="status-block" style="font-family:monospace"></div>
+                  <button class="action" onclick="loadStatusBlock()">${LANG==="ar"?"تحديث الحالة":"Refresh Status"}</button>
+                </div>
             </div>
             `;
             setTimeout(()=>{
-            loadFeederVersions();
-            loadStatusBlock();
+              loadFeederVersions();
+              loadStatusBlock();
             },200);
         }
       }
@@ -1507,10 +1511,6 @@ body.rtl .diagnostics-section {
               ? (LANG === "ar" ? "متصل" : "Connected")
               : (LANG === "ar" ? "غير متصل" : "Not Connected")
             }</b></div>
-    		<div><b>
-    		</b></div>
-    		<div><b>
-    		</b></div>
           </div>
           `;
           }
@@ -2198,7 +2198,6 @@ ${d.logs || "-"}
 
       if (statusEl){
         if (!latest.panel && !latest.wingbits) {
-          // Remove any "could not verify" message entirely (as requested)
           statusEl.innerText = '';
         } else {
           statusEl.style.color = '#2e7d32';
@@ -2216,7 +2215,6 @@ ${d.logs || "-"}
       });
       if (!ok) return;
       try {
-        // Reuse backend route to reinstall only the panel
         const resp = await fetch('/api/update/reinstall', {
           method:'POST',
           headers:{'Content-Type':'application/json','X-Auth-Token': AUTH_TOKEN},
@@ -2349,19 +2347,54 @@ ${d.logs || "-"}
     txt.en.summary_ok = txt.en.summary_ok || "Station is running normally.";
     txt.en.summary_warn = txt.en.summary_warn || "Station is running with warnings.";
     txt.en.summary_fail = txt.en.summary_fail || "Station is NOT healthy.";
+
+    // UPDATED INIT TEXTS (180–300s) + labels for clock
     txt.en.initializing = txt.en.initializing || "Initializing";
-    txt.en.init_msg = txt.en.init_msg || "Recent boot/replug detected. Wait 60–120 seconds, then run diagnostics again.";
-    txt.en.run_again_60 = txt.en.run_again_60 || "Run again in 60s";
+    txt.en.init_msg = txt.en.init_msg || "Recent boot/replug detected. Wait 180–300 seconds, then run diagnostics again.";
+    txt.en.run_again_60 = txt.en.run_again_60 || "Run again in 300s";
+    txt.en.now = txt.en.now || "Current time";
+    txt.en.boot_at = txt.en.boot_at || "Boot/replug time";
+
     txt.ar.troubleshooter = txt.ar.troubleshooter || "أداة تشخيص ذكية";
     txt.ar.run_diagnostics = txt.ar.run_diagnostics || "تشغيل التشخيص";
-    txt.ar.initializing = txt.ar.initializing || "جارٍ التهيئة";
-    txt.ar.init_msg = txt.ar.init_msg || "تمّ اكتشاف تشغيل/إعادة توصيل حديث. انتظر 60–120 ثانية ثم اضغط تشغيل التشخيص مجددًا.";
-    txt.ar.run_again_60 = txt.ar.run_again_60 || "تشغيل مجددًا بعد 60 ثانية";
     txt.ar.safe_fix = txt.ar.safe_fix || "تفعيل الإصلاح التلقائي الآمن";
     txt.ar.summary_ok = txt.ar.summary_ok || "المحطة تعمل بشكل طبيعي.";
     txt.ar.summary_warn = txt.ar.summary_warn || "المحطة تعمل مع تحذيرات.";
     txt.ar.summary_fail = txt.ar.summary_fail || "المحطة ليست بحالة جيدة.";
+
+    // UPDATED INIT TEXTS (180–300s)
+    txt.ar.initializing = txt.ar.initializing || "جارٍ التهيئة";
+    txt.ar.init_msg = txt.ar.init_msg || "تمّ اكتشاف تشغيل/إعادة توصيل حديث. انتظر 180–300 ثانية ثم اضغط تشغيل التشخيص مجددًا.";
+    txt.ar.run_again_60 = txt.ar.run_again_60 || "تشغيل مجددًا بعد 300 ثانية";
+    txt.ar.now = txt.ar.now || "الوقت الحالي";
+    txt.ar.boot_at = txt.ar.boot_at || "وقت التشغيل/إعادة التوصيل";
   } catch(e) {}
+
+  // ---- Time & Wait helpers (new) ----
+  let _tsClockTimer = null;
+  let _tsWaitTimer = null;
+  let _tsBootEpochMs = null;
+  function _wb_two(n){return (n<10?'0':'')+n}
+  function _wb_formatTime(dt){try{return _wb_two(dt.getHours())+':'+_wb_two(dt.getMinutes())+':'+_wb_two(dt.getSeconds())}catch(_){return '--:--:--'}}
+  function _wb_tickClock(){try{const el=document.getElementById('ts-now'); if(el) el.textContent=_wb_formatTime(new Date())}catch(_){}}
+  function _wb_startClock(){try{if(_tsClockTimer)clearInterval(_tsClockTimer); _wb_tickClock(); _tsClockTimer=setInterval(_wb_tickClock,1000)}catch(_){}}  
+  function _wb_updateWaitRemaining(){
+    try{
+      const rem=document.getElementById('ts-wait-rem');
+      const bootAt=document.getElementById('ts-boot-at');
+      if (!rem) return;
+      if (_tsBootEpochMs){
+        const elapsed=Math.max(0,Math.floor((Date.now()-_tsBootEpochMs)/1000));
+        const minR=Math.max(0,180-elapsed);
+        const maxR=Math.max(0,300-elapsed);
+        rem.textContent=(minR+'–'+maxR+'s');
+        if (bootAt) bootAt.textContent=_wb_formatTime(new Date(_tsBootEpochMs));
+      } else {
+        rem.textContent='180–300s';
+      }
+    }catch(_){}
+  }
+  function _wb_startWaitTicker(){try{if(_tsWaitTimer)clearInterval(_tsWaitTimer); _wb_updateWaitRemaining(); _tsWaitTimer=setInterval(_wb_updateWaitRemaining,1000)}catch(_){}}
 
   // Infer status from text (ignore cleared/ignored warnings)
   function _wb_inferStatus(details, status){
@@ -2418,7 +2451,6 @@ ${d.logs || "-"}
       geosignerNotLinked: /geosigner is not linked/i.test(t),
       sdrMissing: /rtlsdr:\s*no supported devices|sdr not detected|no rtl[-\/]?sdr/i.test(t),
       readsbDown: /stats\.json not found|readsb\.service[^\n]*fail|sdropen\(\) failed|abnormal exit/i.test(t),
-      // Heuristic: zero input -> likely SDR problem even if rtl-sdr message not present
       inputZero: /data input status:\s*failed/.test(t) && (
                    /messages:\s*0\/min/.test(t) ||
                    /data received:\s*0 bytes/.test(t) ||
@@ -2429,12 +2461,10 @@ ${d.logs || "-"}
       diskLow: /(disk .*(full|low)|no space left)/i.test(t),
       memLow: /(out of memory|oom|low memory)/i.test(t),
       tempHigh: /(overheat|thermal|high temp|throttled)/i.test(t),
-      // NEW: wingbits service masked/inactive
       wingbitsMasked: /unit\s+wingbits\.service\s+is\s+masked/i.test(t) || (/loaded:\s*masked/i.test(t) && /wingbits\.service/i.test(t)),
       wingbitsInactive: (/wingbits\.service[^\n]*inactive\s*\(dead\)/i.test(t)) || ((/active:\s*inactive\s*\(dead\)/i.test(t)) && /wingbits\.service/i.test(t)),
     };
 
-    // GeoSigner-only guidance (keep it focused)
     if (cues.geosignerMissing || cues.geosignerNotLinked){
       const tips = (lang === 'ar')
         ? [
@@ -2452,7 +2482,6 @@ ${d.logs || "-"}
 
     const tips = [];
 
-    // Wingbits service masked/inactive
     if (cues.wingbitsMasked){
       tips.push(
         lang==='ar'
@@ -2473,7 +2502,6 @@ ${d.logs || "-"}
       );
     }
 
-    // SDR likely root-cause (explicit missing or zero input symptoms)
     const sdrLikely = cues.sdrMissing || cues.inputZero;
     if (sdrLikely){
       tips.push(
@@ -2526,9 +2554,8 @@ ${d.logs || "-"}
     return tips.length ? _wb_renderNextSteps(tips, status) : '';
   }
 
-  // Render "Next steps" with red header for both FAIL and WARN
   function _wb_renderNextSteps(lines, status){
-    const color = '#c62828'; // Always red for FAIL/WARN
+    const color = '#c62828';
     return (
       '<div class="ts-details" style="margin-top:10px;border-top:1px dashed #e6eaf2;padding-top:10px">'
       + `<div style="font-weight:800;color:${color};margin-bottom:6px">Next steps:</div>`
@@ -2538,7 +2565,6 @@ ${d.logs || "-"}
     );
   }
 
-  // Insert TS button under Support menu
   function addTSButton(){
     const side = document.getElementById('side-menu');
     if (!side) return;
@@ -2562,7 +2588,6 @@ ${d.logs || "-"}
     container.insertBefore(btn, container.firstChild);
   }
 
-  // Hook into renderMenuPage to route to Troubleshooter view
   if (typeof window.renderMenuPage === 'function') {
     const _origRenderMenuPage = window.renderMenuPage;
     window.renderMenuPage = function(key, sub, qolSub){
@@ -2577,13 +2602,6 @@ ${d.logs || "-"}
     setTimeout(addTSButton, 500);
   }
 
-  const side = document.getElementById('side-menu');
-  if (side && typeof MutationObserver !== 'undefined'){
-    const mo = new MutationObserver(() => addTSButton());
-    mo.observe(side, {childList:true, subtree:true});
-  }
-
-  // Troubleshooter UI
   window.renderTroubleshooter = function(){
     const el = document.getElementById('main-content');
     if (!el) return;
@@ -2595,152 +2613,217 @@ ${d.logs || "-"}
       +     (window.LANG==='ar'?'تفعيل الإصلاح التلقائي الآمن':'Enable safe auto-fix')
       +   '</label>'
       + '</div>'
-      + '<div id="ts-init-banner" style="margin:6px 0 10px 0"></div>' +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +  '<button class="action" onclick="runTroubleshooter()">'+(window.LANG==='ar'?'تشغيل التشخيص':'Run diagnostics')+'</button>' +  '<button class="action" id="ts-run-again" style="display:none;background:#f39c12">'+(window.LANG==='ar'?txt.ar.run_again_60:txt.en.run_again_60)+'</button>' +'</div>'
+      + '<div id="ts-init-banner" style="margin:6px 0 10px 0"></div>'
+      + '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+      +   '<button class="action" onclick="runTroubleshooter()">'+(window.LANG==='ar'?'تشغيل التشخيص':'Run diagnostics')+'</button>'
+      +   '<button class="action" id="ts-run-again" style="display:none;background:#f39c12">'+(window.LANG==='ar'?txt.ar.run_again_60:txt.en.run_again_60)+'</button>'
+      + '</div>'
       + '<div id="ts-summary" style="margin:14px 0;font-weight:700;"></div>'
       + '<div id="ts-results"></div>';
   
-  _wb_probeInitAndRenderBanner();
-};
+    _wb_probeInitAndRenderBanner();
+  };
 
-  
-// Run again in 60s button logic
-let _tsRunAgainTimer = null;
-function _wb_startRunAgainCountdown(sec){
-  try{
-    const btn = document.getElementById('ts-run-again');
-    if (!btn) return;
-    let left = sec || 60;
-    btn.disabled = true;
-    const base = (window.LANG==='ar'?txt.ar.run_again_60:txt.en.run_again_60);
-    btn.textContent = base + ' ('+left+'s)';
-    _tsRunAgainTimer = setInterval(()=>{
-      left -= 1;
-      if (left <= 0){
-        clearInterval(_tsRunAgainTimer); _tsRunAgainTimer = null;
-        btn.disabled = false; btn.style.display='none';
-        runTroubleshooter();
-      }else{
-        btn.textContent = base + ' ('+left+'s)';
-      }
+  // Run again in 300s button logic
+  let _tsRunAgainTimer = null;
+  function _wb_startRunAgainCountdown(sec){
+    try{
+      const btn = document.getElementById('ts-run-again');
+      if (!btn) return;
+      let left = (typeof sec==='number' && sec>0) ? sec : 300;
+      btn.disabled = true;
+      const base = (window.LANG==='ar'?txt.ar.run_again_60:txt.en.run_again_60);
+      btn.textContent = base + ' ('+left+'s)';
+      _tsRunAgainTimer = setInterval(()=>{
+        left -= 1;
+        if (left <= 0){
+          clearInterval(_tsRunAgainTimer); _tsRunAgainTimer = null;
+          btn.disabled = false; btn.style.display='none';
+          runTroubleshooter();
+        }else{
+          btn.textContent = base + ' ('+left+'s)';
+        }
+              }
     }, 1000);
-  }catch(_){}
+  } catch(_) {}
 }
 
+/* ==== INIT probe banner (with live clock, boot/replug time, remaining window) ==== */
 async function _wb_probeInitAndRenderBanner(){
   try{
     const token = (typeof AUTH_TOKEN!=='undefined'&&AUTH_TOKEN)||localStorage.getItem('auth_token')||'';
     const res = await fetch('/api/troubleshoot/probe-init',{headers:{'X-Auth-Token':token}});
     if (res.status === 401) return;
     const js = await res.json();
+
     if (js && js.ok && js.init && js.init.state){
       const banner = document.getElementById('ts-init-banner');
       const runAgain = document.getElementById('ts-run-again');
+
       if (banner){
-        banner.innerHTML = '<div class="ts-row ts-warn">'
-          + '<div class="ts-title">' + (window.LANG==='ar'?txt.ar.initializing:txt.en.initializing)
-          + ' &nbsp; <span class="ts-badge warn">' + (window.LANG==='ar'?txt.ar.initializing:txt.en.initializing) + '</span></div>'
-          + '<div class="ts-details">' + (window.LANG==='ar'?txt.ar.init_msg:txt.en.init_msg) + '</div>'
-          + '</div>';
+        banner.innerHTML = '' +
+          '<div class="ts-row ts-warn">' +
+            '<div class="ts-title">'
+              + (window.LANG==='ar'?txt.ar.initializing:txt.en.initializing)
+              + ' &nbsp; <span class="ts-badge warn">'
+              + (window.LANG==='ar'?txt.ar.initializing:txt.en.initializing)
+              + '</span>' +
+            '</div>' +
+            '<div class="ts-details">'
+              + (window.LANG==='ar'?txt.ar.init_msg:txt.en.init_msg) +
+            '</div>' +
+            '<div class="ts-details" style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">' +
+              '<div><strong>' + (window.LANG==='ar'?txt.ar.now:txt.en.now) + ':</strong> <span id="ts-now">--:--:--</span></div>' +
+              '<div><strong>' + (window.LANG==='ar'?txt.ar.boot_at:txt.en.boot_at) + ':</strong> <span id="ts-boot-at">--:--:--</span></div>' +
+              '<div><strong>' + (window.LANG==='ar'?'المتبقي':'Remaining') + ':</strong> <span id="ts-wait-rem">180–300s</span></div>' +
+            '</div>' +
+          '</div>';
       }
+
       if (runAgain){
         runAgain.style.display = 'inline-block';
-        runAgain.onclick = ()=> _wb_startRunAgainCountdown(60);
+        runAgain.onclick = ()=> _wb_startRunAgainCountdown(300);
       }
+
+      // ابدأ الساعة الحية وحساب الوقت المتبقي (إن كانت الدوال موجودة)
+      try{
+        if (typeof _wb_startClock === 'function') _wb_startClock();
+        if (typeof _wb_startWaitTicker === 'function') {
+          // تقدير وقت الإقلاع من نص السبب إن وُجد
+          if (typeof _tsBootEpochMs !== 'undefined') _tsBootEpochMs = null;
+          const rsn = (js.init && js.init.reason) ? js.init.reason : '';
+          const m = rsn.match(/system booted (\d+)s ago/i);
+          if (m){
+            const elapsed = parseInt(m[1],10);
+            if (!isNaN(elapsed)) _tsBootEpochMs = Date.now() - (elapsed * 1000);
+          }
+          _wb_startWaitTicker();
+        }
+      }catch(_){}
+
     } else {
+      // لا توجد حالة INIT حالياً — اخفِ الشارة ونظّف التايمرز
       const banner = document.getElementById('ts-init-banner');
       if (banner) banner.innerHTML = '';
       const runAgain = document.getElementById('ts-run-again');
       if (runAgain){ runAgain.style.display='none'; runAgain.onclick = null; }
+
+      try{
+        if (typeof _tsClockTimer!=='undefined' && _tsClockTimer){ clearInterval(_tsClockTimer); _tsClockTimer = null; }
+        if (typeof _tsWaitTimer!=='undefined' && _tsWaitTimer){ clearInterval(_tsWaitTimer); _tsWaitTimer = null; }
+        if (typeof _tsBootEpochMs!=='undefined') _tsBootEpochMs = null;
+      }catch(_){}
     }
   }catch(_){}
 }
-// Execute Troubleshooter
-  window.runTroubleshooter = async function(){
-    const resultsEl = document.getElementById('ts-results');
-    const summaryEl = document.getElementById('ts-summary');
-    if (resultsEl) resultsEl.innerHTML = '<div style="padding:12px;color:#666">'+(window.LANG==='ar'?'يرجى الانتظار...':'Please wait...')+'</div>';
-    if (summaryEl) summaryEl.innerHTML = '';
-    try{
-      const apply_fix = !!(document.getElementById('ts-safe-fix') && document.getElementById('ts-safe-fix').checked);
-      const res = await fetch('/api/troubleshoot/run', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-Auth-Token':(typeof AUTH_TOKEN!=='undefined'&&AUTH_TOKEN)||localStorage.getItem('auth_token')||''},
-        body: JSON.stringify({apply_fix})
-      });
-      if (res.status === 401){
-        window.AUTH_TOKEN = null; localStorage.removeItem('auth_token');
-        if (typeof window.renderLoginPage === 'function') window.renderLoginPage();
-        return;
-      }
-      let js = await res.json();
-      _wb_probeInitAndRenderBanner();
-      if (!js || js.ok === false){ throw new Error((js && js.msg) || 'Failed'); }
 
-      let checks = (js.checks || []).map(c => ({...c, status: _wb_inferStatus(c.details, c.status)}));
+/* ==== Execute Troubleshooter ==== */
+window.runTroubleshooter = async function(){
+  const resultsEl = document.getElementById('ts-results');
+  const summaryEl = document.getElementById('ts-summary');
 
-      // If readsb is healthy now, downgrade old hints to OK
-      try{
-        const readsbHealthy = (checks || []).some(x => /wingbits detailed status/i.test(x.title||'') && /data input status:\s*ok/i.test(x.details||''));
-        if (readsbHealthy){
-          checks = checks.map(x => {
-            if ((x.title||'').toLowerCase().includes('readsb recent log hints')){
-              x.status = 'OK';
-              x.details = (x.details||'') + '\n\n[Cleared] readsb currently healthy; older log warning ignored.';
-            }
-            return x;
-          });
-        }
-      }catch(_){}
+  if (resultsEl) {
+    resultsEl.innerHTML = '<div style="padding:12px;color:#666">'+(window.LANG==='ar'?'يرجى الانتظار...':'Please wait...')+'</div>';
+  }
+  if (summaryEl) summaryEl.innerHTML = '';
 
-      // Overall summary strictly from actual checks
-      let overall = 'OK';
-      if (checks.some(c=>c.status==='FAIL')) overall = 'FAIL';
-      else if (checks.some(c=>c.status==='WARN')) overall = 'WARN';
+  try{
+    const apply_fix = !!(document.getElementById('ts-safe-fix') && document.getElementById('ts-safe-fix').checked);
+    const res = await fetch('/api/troubleshoot/run', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'X-Auth-Token': (typeof AUTH_TOKEN!=='undefined'&&AUTH_TOKEN)||localStorage.getItem('auth_token')||''
+      },
+      body: JSON.stringify({apply_fix})
+    });
 
-      if (summaryEl){
-        summaryEl.textContent = overall==='OK'
-          ? (window.LANG==='ar'?'المحطة تعمل بشكل طبيعي.':'Station is running normally.')
-          : (overall==='WARN'
-            ? (window.LANG==='ar'?'المحطة تعمل مع تحذيرات.':'Station is running with warnings.')
-            : (window.LANG==='ar'?'المحطة ليست بحالة جيدة.':'Station is NOT healthy.'));
-      }
-
-      const badge = (state)=> state==='OK' ? '<span class="ts-badge ok">OK</span>'
-                            : state==='WARN' ? '<span class="ts-badge warn">WARN</span>'
-                            : '<span class="ts-badge fail">FAIL</span>';
-
-      if (resultsEl){
-        resultsEl.innerHTML = checks.map(c=>{
-          const cls = c.status==='OK'?'ts-ok':(c.status==='WARN'?'ts-warn':'ts-fail');
-          let det = _wb_filterDetailsByLang(c.details||'');
-          det = (det||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-          const next = _wb_buildNextSteps(c.title||'', c.details||'', c.status||'');
-          return '<div class="ts-row '+cls+'">'
-               +   '<div class="ts-title">'+c.title+' &nbsp; '+badge(c.status)+'</div>'
-               +   '<div class="ts-details">'+det+'</div>'
-               +   (next || '')
-               + '</div>';
-        }).join('')
-        + ((js.autofix && js.autofix.applied && js.autofix.applied.length)
-            ? ('<div class="ts-row ts-ok"><div class="ts-title">Auto-fix actions</div><div class="ts-details">'
-               + js.autofix.applied.map(a=>'• '+a.action+'\n'+(a.result||'')).join('\n\n')
-               + '</div></div>')
-            : '');
-      }
-    }catch(e){
-      if (resultsEl){
-        let msg = (e && e.message) || 'Error';
-        msg = msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        resultsEl.innerHTML = '<div class="ts-row ts-fail"><div class="ts-title">Error</div><div class="ts-details">'+msg+'</div></div>';
-      }
+    if (res.status === 401){
+      window.AUTH_TOKEN = null; localStorage.removeItem('auth_token');
+      if (typeof window.renderLoginPage === 'function') window.renderLoginPage();
+      return;
     }
-  };
+
+    const js = await res.json();
+    // حدّث شارة INIT بعد انتهاء التشغيل
+    _wb_probeInitAndRenderBanner();
+
+    if (!js || js.ok === false) throw new Error((js && js.msg) || 'Failed');
+
+    // استنتاج الحالة من التفاصيل (تجاهُل تحذيرات قديمة إن كانت OK الآن)
+    function _wb_inferStatus(details, status){
+      const t = (details || '').toLowerCase();
+      const hard = /failed|error|no geosigner device found|geosigner not available|geosigner is not linked|[✗×]/i.test(t);
+      if (hard) return 'FAIL';
+      if (/warn/i.test(t)) return status === 'OK' ? 'WARN' : (status || 'WARN');
+      return status || 'OK';
+    }
+
+    let checks = (js.checks || []).map(c => ({...c, status: _wb_inferStatus(c.details, c.status)}));
+
+    try{
+      const readsbHealthy = (checks || []).some(x => /wingbits detailed status/i.test(x.title||'') && /data input status:\s*ok/i.test(x.details||''));
+      if (readsbHealthy){
+        checks = checks.map(x => {
+          if ((x.title||'').toLowerCase().includes('readsb recent log hints')){
+            x.status = 'OK';
+            x.details = (x.details||'') + '\n\n[Cleared] readsb currently healthy; older log warning ignored.';
+          }
+          return x;
+        });
+      }
+    }catch(_){}
+
+    // الملخص العام
+    let overall = 'OK';
+    if (checks.some(c=>c.status==='FAIL')) overall = 'FAIL';
+    else if (checks.some(c=>c.status==='WARN')) overall = 'WARN';
+
+    if (summaryEl){
+      summaryEl.textContent =
+        overall==='OK'   ? (window.LANG==='ar'?'المحطة تعمل بشكل طبيعي.':'Station is running normally.')
+      : overall==='WARN' ? (window.LANG==='ar'?'المحطة تعمل مع تحذيرات.':'Station is running with warnings.')
+                         : (window.LANG==='ar'?'المحطة ليست بحالة جيدة.':'Station is NOT healthy.');
+    }
+
+    const badge = (state)=> state==='OK' ? '<span class="ts-badge ok">OK</span>'
+                          : state==='WARN' ? '<span class="ts-badge warn">WARN</span>'
+                                           : '<span class="ts-badge fail">FAIL</span>';
+
+    if (resultsEl){
+      resultsEl.innerHTML = (checks||[]).map(c=>{
+        const cls = c.status==='OK'?'ts-ok':(c.status==='WARN'?'ts-warn':'ts-fail');
+        let det = (c.details||'')
+          .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return (
+          '<div class="ts-row '+cls+'">'
+          +  '<div class="ts-title">'+(c.title||'')+' &nbsp; '+badge(c.status)+'</div>'
+          +  '<div class="ts-details">'+det+'</div>'
+          +'</div>'
+        );
+      }).join('')
+
+      + ((js.autofix && js.autofix.applied && js.autofix.applied.length)
+        ? ('<div class="ts-row ts-ok"><div class="ts-title">Auto-fix actions</div><div class="ts-details">'
+            + js.autofix.applied.map(a=>'• '+a.action+'\n'+(a.result||'')).join('\n\n')
+            + '</div></div>')
+        : '');
+    }
+  }catch(e){
+    if (resultsEl){
+      let msg = (e && e.message) || 'Error';
+      msg = msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      resultsEl.innerHTML =
+        '<div class="ts-row ts-fail"><div class="ts-title">Error</div><div class="ts-details">'+msg+'</div></div>';
+    }
+  }
+};
+
+// نهاية حقن الـ Troubleshooter
 })();
 </script>
 
 </body>
 </html>
-EOF
 
-echo "Frontend files written."
-echo ""
+     
