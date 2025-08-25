@@ -355,6 +355,7 @@ body.rtl .diagnostics-section {
   .ts-ok{border-left-color:#27ae60}
   .ts-warn{border-left-color:#f39c12}
   .ts-fail{border-left-color:#e74c3c}
+  .ts-init{border-left-color:#f1c40f}
   .ts-title{font-weight:700;color:#1a2940;margin-bottom:6px}
   .ts-details{font-family:monospace;white-space:pre-wrap;color:#333}
   .ts-badge{padding:3px 8px;border-radius:8px;font-weight:700;font-size:.92em}
@@ -2348,8 +2349,14 @@ ${d.logs || "-"}
     txt.en.summary_ok = txt.en.summary_ok || "Station is running normally.";
     txt.en.summary_warn = txt.en.summary_warn || "Station is running with warnings.";
     txt.en.summary_fail = txt.en.summary_fail || "Station is NOT healthy.";
+    txt.en.initializing = txt.en.initializing || "Initializing";
+    txt.en.init_msg = txt.en.init_msg || "Recent boot/replug detected. Wait 60–120 seconds, then run diagnostics again.";
+    txt.en.run_again_60 = txt.en.run_again_60 || "Run again in 60s";
     txt.ar.troubleshooter = txt.ar.troubleshooter || "أداة تشخيص ذكية";
     txt.ar.run_diagnostics = txt.ar.run_diagnostics || "تشغيل التشخيص";
+    txt.ar.initializing = txt.ar.initializing || "جارٍ التهيئة";
+    txt.ar.init_msg = txt.ar.init_msg || "تمّ اكتشاف تشغيل/إعادة توصيل حديث. انتظر 60–120 ثانية ثم اضغط تشغيل التشخيص مجددًا.";
+    txt.ar.run_again_60 = txt.ar.run_again_60 || "تشغيل مجددًا بعد 60 ثانية";
     txt.ar.safe_fix = txt.ar.safe_fix || "تفعيل الإصلاح التلقائي الآمن";
     txt.ar.summary_ok = txt.ar.summary_ok || "المحطة تعمل بشكل طبيعي.";
     txt.ar.summary_warn = txt.ar.summary_warn || "المحطة تعمل مع تحذيرات.";
@@ -2588,12 +2595,66 @@ ${d.logs || "-"}
       +     (window.LANG==='ar'?'تفعيل الإصلاح التلقائي الآمن':'Enable safe auto-fix')
       +   '</label>'
       + '</div>'
-      + '<button class="action" onclick="runTroubleshooter()">'+(window.LANG==='ar'?'تشغيل التشخيص':'Run diagnostics')+'</button>'
+      + '<div id="ts-init-banner" style="margin:6px 0 10px 0"></div>' +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +  '<button class="action" onclick="runTroubleshooter()">'+(window.LANG==='ar'?'تشغيل التشخيص':'Run diagnostics')+'</button>' +  '<button class="action" id="ts-run-again" style="display:none;background:#f39c12">'+(window.LANG==='ar'?txt.ar.run_again_60:txt.en.run_again_60)+'</button>' +'</div>'
       + '<div id="ts-summary" style="margin:14px 0;font-weight:700;"></div>'
       + '<div id="ts-results"></div>';
-  };
+  
+  _wb_probeInitAndRenderBanner();
+};
 
-  // Execute Troubleshooter
+  
+// Run again in 60s button logic
+let _tsRunAgainTimer = null;
+function _wb_startRunAgainCountdown(sec){
+  try{
+    const btn = document.getElementById('ts-run-again');
+    if (!btn) return;
+    let left = sec || 60;
+    btn.disabled = true;
+    const base = (window.LANG==='ar'?txt.ar.run_again_60:txt.en.run_again_60);
+    btn.textContent = base + ' ('+left+'s)';
+    _tsRunAgainTimer = setInterval(()=>{
+      left -= 1;
+      if (left <= 0){
+        clearInterval(_tsRunAgainTimer); _tsRunAgainTimer = null;
+        btn.disabled = false; btn.style.display='none';
+        runTroubleshooter();
+      }else{
+        btn.textContent = base + ' ('+left+'s)';
+      }
+    }, 1000);
+  }catch(_){}
+}
+
+async function _wb_probeInitAndRenderBanner(){
+  try{
+    const token = (typeof AUTH_TOKEN!=='undefined'&&AUTH_TOKEN)||localStorage.getItem('auth_token')||'';
+    const res = await fetch('/api/troubleshoot/probe-init',{headers:{'X-Auth-Token':token}});
+    if (res.status === 401) return;
+    const js = await res.json();
+    if (js && js.ok && js.init && js.init.state){
+      const banner = document.getElementById('ts-init-banner');
+      const runAgain = document.getElementById('ts-run-again');
+      if (banner){
+        banner.innerHTML = '<div class="ts-row ts-warn">'
+          + '<div class="ts-title">' + (window.LANG==='ar'?txt.ar.initializing:txt.en.initializing)
+          + ' &nbsp; <span class="ts-badge warn">' + (window.LANG==='ar'?txt.ar.initializing:txt.en.initializing) + '</span></div>'
+          + '<div class="ts-details">' + (window.LANG==='ar'?txt.ar.init_msg:txt.en.init_msg) + '</div>'
+          + '</div>';
+      }
+      if (runAgain){
+        runAgain.style.display = 'inline-block';
+        runAgain.onclick = ()=> _wb_startRunAgainCountdown(60);
+      }
+    } else {
+      const banner = document.getElementById('ts-init-banner');
+      if (banner) banner.innerHTML = '';
+      const runAgain = document.getElementById('ts-run-again');
+      if (runAgain){ runAgain.style.display='none'; runAgain.onclick = null; }
+    }
+  }catch(_){}
+}
+// Execute Troubleshooter
   window.runTroubleshooter = async function(){
     const resultsEl = document.getElementById('ts-results');
     const summaryEl = document.getElementById('ts-summary');
@@ -2612,6 +2673,7 @@ ${d.logs || "-"}
         return;
       }
       let js = await res.json();
+      _wb_probeInitAndRenderBanner();
       if (!js || js.ok === false){ throw new Error((js && js.msg) || 'Failed'); }
 
       let checks = (js.checks || []).map(c => ({...c, status: _wb_inferStatus(c.details, c.status)}));
