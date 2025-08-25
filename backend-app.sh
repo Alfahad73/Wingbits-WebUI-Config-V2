@@ -1271,6 +1271,50 @@ def serve_frontend(path):
     else:
         return send_from_directory(root, "index.html")
 
+
+# -------- Initialization probe helpers (new) --------
+def _initialization_state():
+    info = {"state": False, "reason": ""}
+    reasons = []
+    now = time.time()
+    try:
+        bt = psutil.boot_time()
+        if bt:
+            up = now - bt
+            if up < 120:
+                reasons.append(f"system booted {int(up)}s ago")
+    except Exception:
+        pass
+
+    # recent readsb/wingbits restarts in last 2 minutes
+    for svc in ("readsb", "wingbits"):
+        try:
+            out = run_shell(f'journalctl -u {svc} --since "2 minutes ago" --no-pager | grep -E "Starting|Started" | tail -n 1')
+            if out and "Error executing" not in out and out.strip():
+                reasons.append(f"{svc} restarted recently")
+        except Exception:
+            pass
+
+    # recent USB connect/disconnect/reset (best-effort)
+    try:
+        dm = run_shell("dmesg --ctime | tail -n 200")
+        if re.search(r'usb\s+\d-\d.*(disconnect|connect|reset)', dm, re.I):
+            reasons.append("recent USB connect/disconnect")
+    except Exception:
+        pass
+
+    info["state"] = bool(reasons)
+    info["reason"] = "; ".join(reasons) if reasons else ""
+    return info
+
+@app.route('/api/troubleshoot/probe-init', methods=['GET'])
+@login_required
+def api_troubleshoot_probe_init():
+    try:
+        return jsonify({"ok": True, "init": _initialization_state()})
+    except Exception as e:
+        return jsonify({"ok": False, "msg": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=WEB_PANEL_RUN_PORT)
 EOF
