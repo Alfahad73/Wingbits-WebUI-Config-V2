@@ -2331,7 +2331,7 @@ ${d.logs || "-"}
     }
   </script>
 
-<!-- ===== Smart Troubleshooter injection (enhanced) ===== -->
+<!-- ===== Smart Troubleshooter injection (enhanced) [FIXED] ===== -->
 <script id="WB_TS_V3_INJECTION">
 ;(() => {
   // i18n keys (safe add)
@@ -2345,7 +2345,7 @@ ${d.logs || "-"}
     txt.en.summary_warn = txt.en.summary_warn || "Station is running with warnings.";
     txt.en.summary_fail = txt.en.summary_fail || "Station is NOT healthy.";
 
-    // UPDATED INIT TEXTS (180–300s) + labels for clock
+    // INIT texts
     txt.en.initializing = txt.en.initializing || "Initializing";
     txt.en.init_msg = txt.en.init_msg || "Recent boot/replug detected. Wait 180–300 seconds, then run diagnostics again.";
     txt.en.run_again_60 = txt.en.run_again_60 || "Run again in 300s";
@@ -2359,7 +2359,6 @@ ${d.logs || "-"}
     txt.ar.summary_warn = txt.ar.summary_warn || "المحطة تعمل مع تحذيرات.";
     txt.ar.summary_fail = txt.ar.summary_fail || "المحطة ليست بحالة جيدة.";
 
-    // UPDATED INIT TEXTS (180–300s)
     txt.ar.initializing = txt.ar.initializing || "جارٍ التهيئة";
     txt.ar.init_msg = txt.ar.init_msg || "تمّ اكتشاف تشغيل/إعادة توصيل حديث. انتظر 180–300 ثانية ثم اضغط تشغيل التشخيص مجددًا.";
     txt.ar.run_again_60 = txt.ar.run_again_60 || "تشغيل مجددًا بعد 300 ثانية";
@@ -2367,7 +2366,7 @@ ${d.logs || "-"}
     txt.ar.boot_at = txt.ar.boot_at || "وقت التشغيل/إعادة التوصيل";
   } catch(e) {}
 
-  // ---- Time & Wait helpers (new) ----
+  // ---- Time & Wait helpers ----
   let _tsClockTimer = null;
   let _tsWaitTimer = null;
   let _tsBootEpochMs = null;
@@ -2393,27 +2392,20 @@ ${d.logs || "-"}
   }
   function _wb_startWaitTicker(){try{if(_tsWaitTimer)clearInterval(_tsWaitTimer); _wb_updateWaitRemaining(); _tsWaitTimer=setInterval(_wb_updateWaitRemaining,1000)}catch(_){}}
 
-  // Infer status from text (ignore cleared/ignored warnings)
+  // Infer status
   function _wb_inferStatus(details, status){
     const t = (details || '').toLowerCase();
-
-    if (t.includes('warning') && (t.includes('ignored') || t.includes('cleared')))
-      return status || 'OK';
-
+    if (t.includes('warning') && (t.includes('ignored') || t.includes('cleared'))) return status || 'OK';
     const hard = t.includes('failed') || t.includes('error')
       || t.includes('no geosigner device found')
       || t.includes('geosigner not available')
       || t.includes('geosigner is not linked')
       || /[✗×]/.test(details || '');
     if (hard) return 'FAIL';
-
-    if (t.includes('warn') || t.includes('warning'))
-      return status === 'OK' ? 'WARN' : (status || 'WARN');
-
+    if (t.includes('warn')) return status === 'OK' ? 'WARN' : (status || 'WARN');
     return status || 'OK';
   }
 
-  // Filter mixed-language details according to current UI language
   function _wb_filterDetailsByLang(text){
     try{
       const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
@@ -2434,121 +2426,6 @@ ${d.logs || "-"}
       }).filter(Boolean);
       return cleaned.join('\n').replace(/\s+\.+\s*$/,'').replace(/\s{2,}/g,' ');
     }catch(e){ return text; }
-  }
-
-  // Build context-aware "Next steps" block based on actual failure cues
-  function _wb_buildNextSteps(title, details, status){
-    const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
-    const t = (details || '').toLowerCase();
-    const isFail = status === 'FAIL' || ((/failed|error|✗|×/i.test(details || '')) && !(/update check failed/i.test(details || '')));
-    if (!isFail) return '';
-
-    const cues = {
-      geosignerMissing: /no geosigner device found|geosigner not available/i.test(t),
-      geosignerNotLinked: /geosigner is not linked/i.test(t),
-      sdrMissing: /rtlsdr:\s*no supported devices|sdr not detected|no rtl[-\/]?sdr/i.test(t),
-      readsbDown: /stats\.json not found|readsb\.service[^\n]*fail|sdropen\(\) failed|abnormal exit/i.test(t),
-      inputZero: /data input status:\s*failed/.test(t) && (
-                   /messages:\s*0\/min/.test(t) ||
-                   /data received:\s*0 bytes/.test(t) ||
-                   /signal:\s*0\.?0 dB/.test(t)
-                 ),
-      dnsFail: /(temporary failure in name resolution|no such host|could not resolve|resolve.*failed|dns.*(fail|error))/i.test(t),
-      ntpBad: /ntp.*(unsync|not sync|false)/i.test(t),
-      diskLow: /(disk .*(full|low)|no space left)/i.test(t),
-      memLow: /(out of memory|oom|low memory)/i.test(t),
-      tempHigh: /(overheat|thermal|high temp|throttled)/i.test(t),
-      wingbitsMasked: /unit\s+wingbits\.service\s+is\s+masked/i.test(t) || (/loaded:\s*masked/i.test(t) && /wingbits\.service/i.test(t)),
-      wingbitsInactive: (/wingbits\.service[^\n]*inactive\s*\(dead\)/i.test(t)) || ((/active:\s*inactive\s*\(dead\)/i.test(t)) && /wingbits\.service/i.test(t)),
-    };
-
-    if (cues.geosignerMissing || cues.geosignerNotLinked){
-      const tips = (lang === 'ar')
-        ? [
-            'تأكد من توصيل جهاز GeoSigner عبر USB (جرّب منفذ/سلك آخر)، وتحقق من ظهوره في lsusb.',
-            'إذا لم يُكتشف بعد ذلك، فقد يكون الجهاز تالفًا — تواصل مع الدعم أو استبدل الوحدة.',
-            cues.geosignerNotLinked ? 'نفّذ: wingbits geosigner link ثم تحقّق باستخدام: wingbits status.' : null,
-          ].filter(Boolean)
-        : [
-            'Make sure the GeoSigner USB is connected (try another port/cable); check lsusb for detection.',
-            'If still not detected, the device may be faulty — contact support or replace the unit.',
-            cues.geosignerNotLinked ? 'Run: wingbits geosigner link, then verify with: wingbits status.' : null,
-          ].filter(Boolean);
-      return _wb_renderNextSteps(tips, status);
-    }
-
-    const tips = [];
-
-    if (cues.wingbitsMasked){
-      tips.push(
-        lang==='ar'
-          ? 'الخدمة مُقنّعة (masked): نفّذ sudo systemctl unmask wingbits && sudo systemctl enable --now wingbits.'
-          : 'Service is masked: run sudo systemctl unmask wingbits && sudo systemctl enable --now wingbits.',
-        lang==='ar'
-          ? 'بدلاً من ذلك، فعّل "Enable safe auto-fix" بالأعلى وشغّل التشخيص لإعادة تشغيلها تلقائيًا.'
-          : 'Alternatively, enable "Enable safe auto-fix" above and re-run diagnostics to let the panel restart it automatically.'
-      );
-    } else if (cues.wingbitsInactive){
-      tips.push(
-        lang==='ar'
-          ? 'أعد تشغيل خدمة wingbits: sudo systemctl restart wingbits (أو استخدم زر Restart في اللوحة).'
-          : 'Restart the wingbits service: sudo systemctl restart wingbits (or use the Restart button in the panel).',
-        lang==='ar'
-          ? 'إذا كانت تتوقف مجددًا، افحص السجلات: journalctl -u wingbits -n 200.'
-          : 'If it keeps stopping, check logs: journalctl -u wingbits -n 200.'
-      );
-    }
-
-    const sdrLikely = cues.sdrMissing || cues.inputZero;
-    if (sdrLikely){
-      tips.push(
-        lang==='ar'
-          ? 'تأكد من تثبيت وتركيب دونجل RTL-SDR بإحكام. إن كان متصلًا، افصله وأعد توصيله ثم: sudo systemctl restart readsb.'
-          : 'Ensure the RTL-SDR dongle is firmly plugged. If it is, unplug/replug it, then: sudo systemctl restart readsb.',
-        lang==='ar'
-          ? 'تحقّق من الكشف: lsusb (ابحث عن RTL2832U/R820T). إن لم يظهر، جرّب منفذ/كيبل USB آخر أو موزّع مزوّد بالطاقة.'
-          : 'Verify detection: lsusb (look for RTL2832U/R820T). If missing, try a different USB port/cable or a powered hub.',
-        lang==='ar'
-          ? 'إذا استمر الفشل، قد يكون الدونجل/التعريف تالفًا — جرّب دونجل آخر أو أعد تثبيت تعريفات rtl-sdr.'
-          : 'If still failing, the dongle/driver may be faulty — try another dongle or reinstall rtl-sdr drivers.'
-      );
-    }
-
-    if (cues.readsbDown){
-      tips.push(
-        lang==='ar'
-          ? 'إذا كان stats.json مفقودًا فغالبًا readsb لا يعمل أو لا يكتب في ‎/run/readsb — افحص: systemctl status readsb و journalctl -u readsb -n 100.'
-          : 'If stats.json is missing, readsb likely isn’t running or writing to /run/readsb — check: systemctl status readsb and journalctl -u readsb -n 100.'
-      );
-    }
-
-    if (cues.dnsFail){
-      tips.push(
-        lang==='ar'
-          ? 'جرّب تعيين DNS احتياطي (مثل 1.1.1.1, 8.8.8.8). على systemd: حرّر ‎/etc/systemd/resolved.conf ثم استخدم resolvectl flush-caches.'
-          : 'Try setting fallback DNS (e.g., 1.1.1.1, 8.8.8.8). On systemd: edit /etc/systemd/resolved.conf then use resolvectl flush-caches.',
-        lang==='ar'
-          ? 'اختبار: dig api.wingbits.com أو systemd-resolve --status للتأكد من الحلّ.'
-          : 'Test: dig api.wingbits.com or systemd-resolve --status to verify resolution.'
-      );
-    }
-    if (cues.ntpBad){
-      tips.push(
-        lang==='ar' ? 'تأكد من تزامن الوقت (NTP) — افحص systemd-timesyncd أو ntpsec.' :
-                      'Ensure time is synced (NTP) — check systemd-timesyncd or ntpsec.'
-      );
-    }
-    if (cues.diskLow){
-      tips.push(lang==='ar' ? 'المساحة منخفضة — حرّر مساحة أو وسّع التخزين.' : 'Low disk — free up space or expand storage.');
-    }
-    if (cues.memLow){
-      tips.push(lang==='ar' ? 'الذاكرة منخفضة — أغلق البرامج الثقيلة أو زد الـswap/الرام.' : 'Low memory — close heavy apps or increase swap/RAM.');
-    }
-    if (cues.tempHigh){
-      tips.push(lang==='ar' ? 'حرارة مرتفعة — حسّن التبريد أو قلل الحمل.' : 'High temperature — improve cooling or reduce load.');
-    }
-
-    return tips.length ? _wb_renderNextSteps(tips, status) : '';
   }
 
   function _wb_renderNextSteps(lines, status){
@@ -2621,204 +2498,222 @@ ${d.logs || "-"}
     _wb_probeInitAndRenderBanner();
   };
 
-  // Run again in 300s button logic
-let _tsRunAgainTimer = null;
-function _wb_startRunAgainCountdown(sec) {
-  try {
-    const btn = document.getElementById('ts-run-again');
-    if (!btn) return;
-    let left = (typeof sec === 'number' && sec > 0) ? sec : 300;
-    btn.disabled = true;
-    const base = (window.LANG === 'ar' ? txt.ar.run_again_60 : txt.en.run_again_60);
-    btn.textContent = base + ' (' + left + 's)';
+  // Run-again 300s button logic
+  let _tsRunAgainTimer = null;
+  function _wb_startRunAgainCountdown(sec) {
+    try {
+      const btn = document.getElementById('ts-run-again');
+      if (!btn) return;
+      let left = (typeof sec === 'number' && sec > 0) ? sec : 300;
+      btn.disabled = true;
+      const base = (window.LANG === 'ar' ? txt.ar.run_again_60 : txt.en.run_again_60);
+      btn.textContent = base + ' (' + left + 's)';
+      if (_tsRunAgainTimer) clearInterval(_tsRunAgainTimer);
+      _tsRunAgainTimer = setInterval(() => {
+        left -= 1;
+        if (left <= 0) {
+          clearInterval(_tsRunAgainTimer); _tsRunAgainTimer = null;
+          btn.disabled = false; btn.style.display = 'none';
+          runTroubleshooter();
+        } else {
+          btn.textContent = base + ' (' + left + 's)';
+        }
+      }, 1000);
+    } catch (_) {}
+  }
 
-    if (_tsRunAgainTimer) clearInterval(_tsRunAgainTimer);
-    _tsRunAgainTimer = setInterval(() => {
-      left -= 1;
-      if (left <= 0) {
-        clearInterval(_tsRunAgainTimer); _tsRunAgainTimer = null;
-        btn.disabled = false; btn.style.display = 'none';
-        runTroubleshooter();
-      } else {
-        btn.textContent = base + ' (' + left + 's)';
-      }
-    }, 1000);
-  } catch (_) {}
-}
+  /* ==== FIXED: Robust INIT probe banner (shows ONLY if <300s, and fills boot time) ==== */
+  async function _wb_probeInitAndRenderBanner(){
+    try{
+      const token = (typeof AUTH_TOKEN!=='undefined'&&AUTH_TOKEN)||localStorage.getItem('auth_token')||'';
+      const res = await fetch('/api/troubleshoot/probe-init',{headers:{'X-Auth-Token':token}});
+      if (res.status === 401) return;
+      const js = await res.json();
 
-
-/* ==== INIT probe banner (with live clock, boot/replug time, remaining window) ==== */
-async function _wb_probeInitAndRenderBanner(){
-  try{
-    const token = (typeof AUTH_TOKEN!=='undefined'&&AUTH_TOKEN)||localStorage.getItem('auth_token')||'';
-    const res = await fetch('/api/troubleshoot/probe-init',{headers:{'X-Auth-Token':token}});
-    if (res.status === 401) return;
-    const js = await res.json();
-
-    if (js && js.ok && js.init && js.init.state){
       const banner = document.getElementById('ts-init-banner');
       const runAgain = document.getElementById('ts-run-again');
 
-      if (banner){
-        banner.innerHTML = '' +
-          '<div class="ts-row ts-warn">' +
-            '<div class="ts-title">'
-              + (window.LANG==='ar'?txt.ar.initializing:txt.en.initializing)
-              + ' &nbsp; <span class="ts-badge warn">'
-              + (window.LANG==='ar'?txt.ar.initializing:txt.en.initializing)
-              + '</span>' +
-            '</div>' +
-            '<div class="ts-details">'
-              + (window.LANG==='ar'?txt.ar.init_msg:txt.en.init_msg) +
-            '</div>' +
-            '<div class="ts-details" style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">' +
-              '<div><strong>' + (window.LANG==='ar'?txt.ar.now:txt.en.now) + ':</strong> <span id="ts-now">--:--:--</span></div>' +
-              '<div><strong>' + (window.LANG==='ar'?txt.ar.boot_at:txt.en.boot_at) + ':</strong> <span id="ts-boot-at">--:--:--</span></div>' +
-              '<div><strong>' + (window.LANG==='ar'?'المتبقي':'Remaining') + ':</strong> <span id="ts-wait-rem">180–300s</span></div>' +
-            '</div>' +
-          '</div>';
+      // Clear function
+      function _hideInit(){
+        if (banner) banner.innerHTML = '';
+        if (runAgain){ runAgain.style.display='none'; runAgain.onclick = null; }
+        try{
+          if (_tsClockTimer){ clearInterval(_tsClockTimer); _tsClockTimer = null; }
+          if (_tsWaitTimer){ clearInterval(_tsWaitTimer); _tsWaitTimer = null; }
+          _tsBootEpochMs = null;
+        }catch(_){}
       }
 
+      if (!js || !js.ok || !js.init){ _hideInit(); return; }
+
+      const info = js.init || {};
+      // Try to get elapsed seconds since boot/replug from multiple possible fields
+      let ageSec = null;
+
+      const num = v => (typeof v === 'number' && isFinite(v)) ? v : null;
+      ageSec = num(info.age_sec) ?? num(info.boot_seconds_ago) ?? num(info.elapsed);
+
+      // Try parse from reason string like: "system booted 123s ago" or "replug 64s ago"
+      if (ageSec === null && info.reason){
+        const s = String(info.reason);
+        let m = s.match(/(\d+)\s*s(?:ec(?:onds)?)?\s*ago/i)
+             || s.match(/boot(?:ed)?\s+(\d+)\s*s/i)
+             || s.match(/replug(?:ged)?\s+(\d+)\s*s/i);
+        if (m) {
+          const v = parseInt(m[1], 10);
+          if (!isNaN(v)) ageSec = v;
+        }
+      }
+
+      // Boot epoch detection (unix seconds) from multiple possible fields
+      let bootEpoch = null;
+      bootEpoch = num(info.boot_epoch) ?? num(info.boot_ts) ?? num(info.boot_unix);
+      if (!bootEpoch && ageSec!==null) bootEpoch = Math.floor(Date.now()/1000) - ageSec;
+
+      // Fallback: try parse a date string if provided
+      if (!bootEpoch && info.boot_time){
+        const parsed = Date.parse(info.boot_time);
+        if (!isNaN(parsed)) bootEpoch = Math.floor(parsed/1000);
+      }
+
+      // Decide if we should show INIT banner (ONLY if recent < 300s)
+      const recent = (ageSec !== null) ? (ageSec < 300) : (info.recent === true);
+      if (!recent){ _hideInit(); return; }
+
+      // Render banner
+      if (banner){
+        banner.innerHTML =
+          '<div class="ts-row ts-warn">'
+          +  '<div class="ts-title">'
+          +    (window.LANG==='ar'?txt.ar.initializing:txt.en.initializing)
+          +    ' &nbsp; <span class="ts-badge warn">'
+          +    (window.LANG==='ar'?txt.ar.initializing:txt.en.initializing)
+          +    '</span>'
+          +  '</div>'
+          +  '<div class="ts-details">'
+          +    (window.LANG==='ar'?txt.ar.init_msg:txt.en.init_msg)
+          +  '</div>'
+          +  '<div class="ts-details" style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">'
+          +    '<div><strong>' + (window.LANG==='ar'?txt.ar.now:txt.en.now) + ':</strong> <span id="ts-now">--:--:--</span></div>'
+          +    '<div><strong>' + (window.LANG==='ar'?txt.ar.boot_at:txt.en.boot_at) + ':</strong> <span id="ts-boot-at">--:--:--</span></div>'
+          +    '<div><strong>' + (window.LANG==='ar'?'المتبقي':'Remaining') + ':</strong> <span id="ts-wait-rem">180–300s</span></div>'
+          +  '</div>'
+          +'</div>';
+      }
+
+      // Prepare run-again button
       if (runAgain){
         runAgain.style.display = 'inline-block';
         runAgain.onclick = ()=> _wb_startRunAgainCountdown(300);
       }
 
-      // ابدأ الساعة الحية وحساب الوقت المتبقي (إن كانت الدوال موجودة)
+      // Start live clock + remaining ticker
       try{
-        if (typeof _wb_startClock === 'function') _wb_startClock();
-        if (typeof _wb_startWaitTicker === 'function') {
-          // تقدير وقت الإقلاع من نص السبب إن وُجد
-          if (typeof _tsBootEpochMs !== 'undefined') _tsBootEpochMs = null;
-          const rsn = (js.init && js.init.reason) ? js.init.reason : '';
-          const m = rsn.match(/system booted (\d+)s ago/i);
-          if (m){
-            const elapsed = parseInt(m[1],10);
-            if (!isNaN(elapsed)) _tsBootEpochMs = Date.now() - (elapsed * 1000);
-          }
-          _wb_startWaitTicker();
+        _tsBootEpochMs = bootEpoch ? (bootEpoch * 1000) : (_tsBootEpochMs ?? null);
+        _wb_startClock();
+        _wb_startWaitTicker();         // will fill remaining + boot_at
+        // Force immediate fill for boot_at if we already know it
+        if (_tsBootEpochMs){
+          const bootAt = document.getElementById('ts-boot-at');
+          if (bootAt) bootAt.textContent = _wb_formatTime(new Date(_tsBootEpochMs));
+        }
+      }catch(_){}
+    }catch(_){}
+  }
+
+  /* ==== Execute Troubleshooter ==== */
+  window.runTroubleshooter = async function(){
+    const resultsEl = document.getElementById('ts-results');
+    const summaryEl = document.getElementById('ts-summary');
+
+    if (resultsEl) {
+      resultsEl.innerHTML = '<div style="padding:12px;color:#666">'+(window.LANG==='ar'?'يرجى الانتظار...':'Please wait...')+'</div>';
+    }
+    if (summaryEl) summaryEl.innerHTML = '';
+
+    try{
+      const apply_fix = !!(document.getElementById('ts-safe-fix') && document.getElementById('ts-safe-fix').checked);
+      const res = await fetch('/api/troubleshoot/run', {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'X-Auth-Token': (typeof AUTH_TOKEN!=='undefined'&&AUTH_TOKEN)||localStorage.getItem('auth_token')||''
+        },
+        body: JSON.stringify({apply_fix})
+      });
+
+      if (res.status === 401){
+        window.AUTH_TOKEN = null; localStorage.removeItem('auth_token');
+        if (typeof window.renderLoginPage === 'function') window.renderLoginPage();
+        return;
+      }
+
+      const js = await res.json();
+      // Update INIT banner after run
+      _wb_probeInitAndRenderBanner();
+
+      if (!js || js.ok === false) throw new Error((js && js.msg) || 'Failed');
+
+      let checks = (js.checks || []).map(c => ({...c, status: _wb_inferStatus(c.details, c.status)}));
+
+      try{
+        const readsbHealthy = (checks || []).some(x => /wingbits detailed status/i.test(x.title||'') && /data input status:\s*ok/i.test(x.details||''));
+        if (readsbHealthy){
+          checks = checks.map(x => {
+            if ((x.title||'').toLowerCase().includes('readsb recent log hints')){
+              x.status = 'OK';
+              x.details = (x.details||'') + '\n\n[Cleared] readsb currently healthy; older log warning ignored.';
+            }
+            return x;
+          });
         }
       }catch(_){}
 
-    } else {
-      // لا توجد حالة INIT حالياً — اخفِ الشارة ونظّف التايمرز
-      const banner = document.getElementById('ts-init-banner');
-      if (banner) banner.innerHTML = '';
-      const runAgain = document.getElementById('ts-run-again');
-      if (runAgain){ runAgain.style.display='none'; runAgain.onclick = null; }
+      let overall = 'OK';
+      if (checks.some(c=>c.status==='FAIL')) overall = 'FAIL';
+      else if (checks.some(c=>c.status==='WARN')) overall = 'WARN';
 
-      try{
-        if (typeof _tsClockTimer!=='undefined' && _tsClockTimer){ clearInterval(_tsClockTimer); _tsClockTimer = null; }
-        if (typeof _tsWaitTimer!=='undefined' && _tsWaitTimer){ clearInterval(_tsWaitTimer); _tsWaitTimer = null; }
-        if (typeof _tsBootEpochMs!=='undefined') _tsBootEpochMs = null;
-      }catch(_){}
-    }
-  }catch(_){}
-}
-
-/* ==== Execute Troubleshooter ==== */
-window.runTroubleshooter = async function(){
-  const resultsEl = document.getElementById('ts-results');
-  const summaryEl = document.getElementById('ts-summary');
-
-  if (resultsEl) {
-    resultsEl.innerHTML = '<div style="padding:12px;color:#666">'+(window.LANG==='ar'?'يرجى الانتظار...':'Please wait...')+'</div>';
-  }
-  if (summaryEl) summaryEl.innerHTML = '';
-
-  try{
-    const apply_fix = !!(document.getElementById('ts-safe-fix') && document.getElementById('ts-safe-fix').checked);
-    const res = await fetch('/api/troubleshoot/run', {
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'X-Auth-Token': (typeof AUTH_TOKEN!=='undefined'&&AUTH_TOKEN)||localStorage.getItem('auth_token')||''
-      },
-      body: JSON.stringify({apply_fix})
-    });
-
-    if (res.status === 401){
-      window.AUTH_TOKEN = null; localStorage.removeItem('auth_token');
-      if (typeof window.renderLoginPage === 'function') window.renderLoginPage();
-      return;
-    }
-
-    const js = await res.json();
-    // حدّث شارة INIT بعد انتهاء التشغيل
-    _wb_probeInitAndRenderBanner();
-
-    if (!js || js.ok === false) throw new Error((js && js.msg) || 'Failed');
-
-    // استنتاج الحالة من التفاصيل (تجاهُل تحذيرات قديمة إن كانت OK الآن)
-    function _wb_inferStatus(details, status){
-      const t = (details || '').toLowerCase();
-      const hard = /failed|error|no geosigner device found|geosigner not available|geosigner is not linked|[✗×]/i.test(t);
-      if (hard) return 'FAIL';
-      if (/warn/i.test(t)) return status === 'OK' ? 'WARN' : (status || 'WARN');
-      return status || 'OK';
-    }
-
-    let checks = (js.checks || []).map(c => ({...c, status: _wb_inferStatus(c.details, c.status)}));
-
-    try{
-      const readsbHealthy = (checks || []).some(x => /wingbits detailed status/i.test(x.title||'') && /data input status:\s*ok/i.test(x.details||''));
-      if (readsbHealthy){
-        checks = checks.map(x => {
-          if ((x.title||'').toLowerCase().includes('readsb recent log hints')){
-            x.status = 'OK';
-            x.details = (x.details||'') + '\n\n[Cleared] readsb currently healthy; older log warning ignored.';
-          }
-          return x;
-        });
+      if (summaryEl){
+        summaryEl.textContent =
+          overall==='OK'   ? (window.LANG==='ar'?'المحطة تعمل بشكل طبيعي.':'Station is running normally.')
+        : overall==='WARN' ? (window.LANG==='ar'?'المحطة تعمل مع تحذيرات.':'Station is running with warnings.')
+                           : (window.LANG==='ar'?'المحطة ليست بحالة جيدة.':'Station is NOT healthy.');
       }
-    }catch(_){}
 
-    // الملخص العام
-    let overall = 'OK';
-    if (checks.some(c=>c.status==='FAIL')) overall = 'FAIL';
-    else if (checks.some(c=>c.status==='WARN')) overall = 'WARN';
+      const badge = (state)=> state==='OK' ? '<span class="ts-badge ok">OK</span>'
+                            : state==='WARN' ? '<span class="ts-badge warn">WARN</span>'
+                                             : '<span class="ts-badge fail">FAIL</span>';
 
-    if (summaryEl){
-      summaryEl.textContent =
-        overall==='OK'   ? (window.LANG==='ar'?'المحطة تعمل بشكل طبيعي.':'Station is running normally.')
-      : overall==='WARN' ? (window.LANG==='ar'?'المحطة تعمل مع تحذيرات.':'Station is running with warnings.')
-                         : (window.LANG==='ar'?'المحطة ليست بحالة جيدة.':'Station is NOT healthy.');
+      if (resultsEl){
+        resultsEl.innerHTML = (checks||[]).map(c=>{
+          const cls = c.status==='OK'?'ts-ok':(c.status==='WARN'?'ts-warn':'ts-fail');
+          let det = (c.details||'')
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          return (
+            '<div class="ts-row '+cls+'">'
+            +  '<div class="ts-title">'+(c.title||'')+' &nbsp; '+badge(c.status)+'</div>'
+            +  '<div class="ts-details">'+det+'</div>'
+            +'</div>'
+          );
+        }).join('')
+
+        + ((js.autofix && js.autofix.applied && js.autofix.applied.length)
+          ? ('<div class="ts-row ts-ok"><div class="ts-title">Auto-fix actions</div><div class="ts-details">'
+              + js.autofix.applied.map(a=>'• '+a.action+'\n'+(a.result||'')).join('\n\n')
+              + '</div></div>')
+          : '');
+      }
+    }catch(e){
+      if (resultsEl){
+        let msg = (e && e.message) || 'Error';
+        msg = msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        resultsEl.innerHTML =
+          '<div class="ts-row ts-fail"><div class="ts-title">Error</div><div class="ts-details">'+msg+'</div></div>';
+      }
     }
+  };
 
-    const badge = (state)=> state==='OK' ? '<span class="ts-badge ok">OK</span>'
-                          : state==='WARN' ? '<span class="ts-badge warn">WARN</span>'
-                                           : '<span class="ts-badge fail">FAIL</span>';
-
-    if (resultsEl){
-      resultsEl.innerHTML = (checks||[]).map(c=>{
-        const cls = c.status==='OK'?'ts-ok':(c.status==='WARN'?'ts-warn':'ts-fail');
-        let det = (c.details||'')
-          .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        return (
-          '<div class="ts-row '+cls+'">'
-          +  '<div class="ts-title">'+(c.title||'')+' &nbsp; '+badge(c.status)+'</div>'
-          +  '<div class="ts-details">'+det+'</div>'
-          +'</div>'
-        );
-      }).join('')
-
-      + ((js.autofix && js.autofix.applied && js.autofix.applied.length)
-        ? ('<div class="ts-row ts-ok"><div class="ts-title">Auto-fix actions</div><div class="ts-details">'
-            + js.autofix.applied.map(a=>'• '+a.action+'\n'+(a.result||'')).join('\n\n')
-            + '</div></div>')
-        : '');
-    }
-  }catch(e){
-    if (resultsEl){
-      let msg = (e && e.message) || 'Error';
-      msg = msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      resultsEl.innerHTML =
-        '<div class="ts-row ts-fail"><div class="ts-title">Error</div><div class="ts-details">'+msg+'</div></div>';
-    }
-  }
-};
-
-// نهاية حقن الـ Troubleshooter
+  // نهاية حقن الـ Troubleshooter (fixed)
 })();
 </script>
 
