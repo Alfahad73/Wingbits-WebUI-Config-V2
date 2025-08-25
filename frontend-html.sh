@@ -785,37 +785,34 @@ body.rtl .diagnostics-section {
         updateLogTimer = null;
       }
 
-      if(tab === "live") {
-        if (tabcontentLive) {
-            tabcontentLive.innerHTML = `
-            <div>
-                <canvas id="liveChart" style="width:100%;max-width:1000px;height:180px;display:block;margin:auto"></canvas>
-            </div>
-            <div id="live-values" style="padding:14px 0 0 0;margin:0;display:flex;flex-direction:column;align          tabcontentLive.innerHTML = `
-            <div>
-                <canvas id="liveChart" style="width:100%;max-width:1000px;height:180px;display:block;margin:auto"></canvas>
-            </div>
-            <div id="live-values" style="padding:14px 0 0 0;margin:0;display:flex;flex-direction:column;align-items:center;gap:5px;"></div>
-            <div style="display:flex;justify-content:center;gap:12px;margin-bottom:18px;">
-                <button class="action" onclick="updateLiveStats(true)">${LANG === "ar" ? "تحديث الآن" : "Refresh Now"}</button>
-            </div>
-            <div id="netstatus-block" style="margin:9px 0 16px 0;text-align:center"></div>
-            <div style="margin:30px 0 0 0">
-                <h3 style="font-size:1.1em;margin-bottom:7px">
-                ${LANG==="ar" ? "معلومات النظام والهاردوير" : "System & Hardware Info"}
-                </h3>
-                <div id="system-info-block" style="font-family:monospace;font-size:1em"></div>
-            </div>
-            <div style="margin-top:10px;color:#888;font-size:0.92em" id="live-chart-note"></div>
-            `;
-            liveStatsHistory = [];
-            initLiveChart(); 
-            liveTimer = setInterval(updateLiveStats, 60000);
-            setTimeout(updateLiveStats, 120);
-            setTimeout(updateSystemInfoBlock, 140);
-            setTimeout(updateNetStatusBlock, 180);
-        }
-      }
+      if (tab === "live") {
+  if (tabcontentLive) {
+    tabcontentLive.innerHTML = `
+      <div>
+        <canvas id="liveChart" style="width:100%;max-width:1000px;height:180px;display:block;margin:auto"></canvas>
+      </div>
+      <div id="live-values" style="padding:14px 0 0 0;margin:0;display:flex;flex-direction:column;align-items:center;gap:5px;"></div>
+      <div style="display:flex;justify-content:center;gap:12px;margin-bottom:18px;">
+        <button class="action" onclick="updateLiveStats(true)">${LANG === "ar" ? "تحديث الآن" : "Refresh Now"}</button>
+      </div>
+      <div id="netstatus-block" style="margin:9px 0 16px 0;text-align:center"></div>
+      <div style="margin:30px 0 0 0">
+        <h3 style="font-size:1.1em;margin-bottom:7px">
+          ${LANG==="ar" ? "معلومات النظام والهاردوير" : "System & Hardware Info"}
+        </h3>
+        <div id="system-info-block" style="font-family:monospace;font-size:1em"></div>
+      </div>
+      <div style="margin-top:10px;color:#888;font-size:0.92em" id="live-chart-note"></div>
+    `;
+    liveStatsHistory = [];
+    initLiveChart();
+    liveTimer = setInterval(updateLiveStats, 60000);
+    setTimeout(updateLiveStats, 120);
+    setTimeout(updateSystemInfoBlock, 140);
+    setTimeout(updateNetStatusBlock, 180);
+  }
+}
+
       else if(tab === "tools") {
         if (tabcontentTools) {
             tabcontentTools.innerHTML = `
@@ -2625,28 +2622,30 @@ ${d.logs || "-"}
   };
 
   // Run again in 300s button logic
-  let _tsRunAgainTimer = null;
-  function _wb_startRunAgainCountdown(sec){
-    try{
-      const btn = document.getElementById('ts-run-again');
-      if (!btn) return;
-      let left = (typeof sec==='number' && sec>0) ? sec : 300;
-      btn.disabled = true;
-      const base = (window.LANG==='ar'?txt.ar.run_again_60:txt.en.run_again_60);
-      btn.textContent = base + ' ('+left+'s)';
-      _tsRunAgainTimer = setInterval(()=>{
-        left -= 1;
-        if (left <= 0){
-          clearInterval(_tsRunAgainTimer); _tsRunAgainTimer = null;
-          btn.disabled = false; btn.style.display='none';
-          runTroubleshooter();
-        }else{
-          btn.textContent = base + ' ('+left+'s)';
-        }
-              }
+let _tsRunAgainTimer = null;
+function _wb_startRunAgainCountdown(sec) {
+  try {
+    const btn = document.getElementById('ts-run-again');
+    if (!btn) return;
+    let left = (typeof sec === 'number' && sec > 0) ? sec : 300;
+    btn.disabled = true;
+    const base = (window.LANG === 'ar' ? txt.ar.run_again_60 : txt.en.run_again_60);
+    btn.textContent = base + ' (' + left + 's)';
+
+    if (_tsRunAgainTimer) clearInterval(_tsRunAgainTimer);
+    _tsRunAgainTimer = setInterval(() => {
+      left -= 1;
+      if (left <= 0) {
+        clearInterval(_tsRunAgainTimer); _tsRunAgainTimer = null;
+        btn.disabled = false; btn.style.display = 'none';
+        runTroubleshooter();
+      } else {
+        btn.textContent = base + ' (' + left + 's)';
+      }
     }, 1000);
-  } catch(_) {}
+  } catch (_) {}
 }
+
 
 /* ==== INIT probe banner (with live clock, boot/replug time, remaining window) ==== */
 async function _wb_probeInitAndRenderBanner(){
@@ -2825,5 +2824,3 @@ window.runTroubleshooter = async function(){
 
 </body>
 </html>
-
-     
