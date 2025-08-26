@@ -362,12 +362,4 @@ RULES
 sudo udevadm control --reload
 sudo udevadm trigger -s usb || true
 echo "[*] USB tracker installed."
-"$SCRIPT_DIR/backend-app.sh"
-"$SCRIPT_DIR/frontend-html.sh"
-
-# --- Final steps ---
-# Sets up the systemd service and displays the final message.
-"$SCRIPT_DIR/systemd-service.sh"
-"$SCRIPT_DIR/final-message.sh"
-
-exit 0
+# --- Install USB tracker (udev) for Wingbits ---
