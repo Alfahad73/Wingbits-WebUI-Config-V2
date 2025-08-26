@@ -2509,87 +2509,146 @@ ${d.logs || "-"}
     } catch (_) {}
   }
 
+  // ===== Fallback scanner for replug info (from /api/system/info) =====
+function _wb_scanObjectForReplugAgeSec(obj){
+  try{
+    const nowSec = Math.floor(Date.now()/1000);
+    let bestAge = null;
+    function maybeSetAge(age){
+      if (!Number.isFinite(age) || age < 0 || age > 86400) return;
+      bestAge = (bestAge==null) ? age : Math.min(bestAge, age);
+    }
+    function walk(o, depth){
+      if (!o || depth>6) return;
+      if (Array.isArray(o)){ o.forEach(x=>walk(x, depth+1)); return; }
+      if (typeof o !== 'object') return;
+      for (const [k,v] of Object.entries(o)){
+        const kl = (k||'').toLowerCase();
+        const isReplugKey = /replug|usb.*(reset|replug)|geosigner|dongle/.test(kl);
+        if (typeof v === 'number'){
+          if (isReplugKey && /(ago|elapsed|sec)/.test(kl)) maybeSetAge(v);
+          if (isReplugKey && /(unix|ts)$/.test(kl)){
+            const ts = v > 1e12 ? Math.floor(v/1000) : v;
+            maybeSetAge(nowSec - ts);
+          }
+        } else if (typeof v === 'string' && isReplugKey){
+          // "123s ago" OR ISO date
+          let m = v.match(/(\d+)\s*s(ec(?:onds)?)?\s*ago/i);
+          if (m){ maybeSetAge(parseInt(m[1],10)); }
+          const t = Date.parse(v);
+          if (!isNaN(t)) maybeSetAge(Math.floor((Date.now()-t)/1000));
+        } else if (typeof v === 'object'){
+          walk(v, depth+1);
+        }
+      }
+    }
+    walk(obj, 0);
+    return bestAge; // seconds ago or null
+  }catch(_){ return null; }
+}
+
+async function _wb_probeReplugFallback(){
+  try{
+    const token = (typeof AUTH_TOKEN!=='undefined'&&AUTH_TOKEN)||localStorage.getItem('auth_token')||'';
+    const r = await fetch('/api/system/info',{headers:{'X-Auth-Token':token}});
+    if (!r.ok) return {recent:false};
+    const js = await r.json();
+    const ageSec = _wb_scanObjectForReplugAgeSec(js);
+    if (Number.isFinite(ageSec) && ageSec < 300){
+      const bootEpoch = Math.floor(Date.now()/1000) - ageSec;
+      return {recent:true, ageSec, bootEpoch};
+    }
+  }catch(_){}
+  return {recent:false};
+}
+
+
   // INIT probe banner
   async function _wb_probeInitAndRenderBanner(){
-    try{
-      const token = (typeof AUTH_TOKEN!=='undefined'&&AUTH_TOKEN)||localStorage.getItem('auth_token')||'';
-      const res = await fetch('/api/troubleshoot/probe-init',{headers:{'X-Auth-Token':token}});
-      if (res.status === 401) return;
-      const js = await res.json();
+  try{
+    const token = (typeof AUTH_TOKEN!=='undefined'&&AUTH_TOKEN)||localStorage.getItem('auth_token')||'';
+    const res = await fetch('/api/troubleshoot/probe-init',{headers:{'X-Auth-Token':token}});
+    if (res.status === 401) return;
+    const js = await res.json();
 
-      const banner = document.getElementById('ts-init-banner');
-      const runAgain = document.getElementById('ts-run-again');
+    const banner = document.getElementById('ts-init-banner');
+    const runAgain = document.getElementById('ts-run-again');
 
-      function _hideInit(){
-        if (banner) banner.innerHTML = '';
-        if (runAgain){ runAgain.style.display='none'; runAgain.onclick = null; }
-        try{
-          if (_tsClockTimer){ clearInterval(_tsClockTimer); _tsClockTimer = null; }
-          if (_tsWaitTimer){ clearInterval(_tsWaitTimer); _tsWaitTimer = null; }
-          _tsBootEpochMs = null;
-        }catch(_){}
-      }
-
-      if (!js || !js.ok || !js.init){ _hideInit(); return; }
-
-      const info = js.init || {};
-      let ageSec = null;
-
-      const num = v => (typeof v === 'number' && isFinite(v)) ? v : null;
-      ageSec = num(info.age_sec) ?? num(info.boot_seconds_ago) ?? num(info.elapsed);
-
-      if (ageSec === null && info.reason){
-        const s = String(info.reason);
-        let m = s.match(/(\d+)\s*s(?:ec(?:onds)?)?\s*ago/i)
-             || s.match(/boot(?:ed)?\s+(\d+)\s*s/i)
-             || s.match(/replug(?:ged)?\s+(\d+)\s*s/i);
-        if (m) {
-          const v = parseInt(m[1], 10);
-          if (!isNaN(v)) ageSec = v;
-        }
-      }
-
-      let bootEpoch = null;
-      bootEpoch = num(info.boot_epoch) ?? num(info.boot_ts) ?? num(info.boot_unix);
-      if (!bootEpoch && ageSec!==null) bootEpoch = Math.floor(Date.now()/1000) - ageSec;
-
-      if (!bootEpoch && info.boot_time){
-        const parsed = Date.parse(info.boot_time);
-        if (!isNaN(parsed)) bootEpoch = Math.floor(parsed/1000);
-      }
-
-      const recent = (ageSec !== null) ? (ageSec < 300) : (info.recent === true);
-      if (!recent){ _hideInit(); return; }
-
-      if (banner){
-        banner.innerHTML =
-          '<div class="ts-row ts-warn">'
-          +  '<div class="ts-title">' + L('ts_init_title') + ' &nbsp; <span class="ts-badge warn">' + L('ts_init_title') + '</span></div>'
-          +  '<div class="ts-details">' + L('ts_init_msg') + '</div>'
-          +  '<div class="ts-details" style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">'
-          +    '<div><strong>' + L('ts_init_now') + ':</strong> <span id="ts-now">--:--:--</span></div>'
-          +    '<div><strong>' + L('ts_init_boot_time') + ':</strong> <span id="ts-boot-at">--:--:--</span></div>'
-          +    '<div><strong>' + L('ts_init_remaining') + ':</strong> <span id="ts-wait-rem">180–300s</span></div>'
-          +  '</div>'
-          +'</div>';
-      }
-
-      if (runAgain){
-        runAgain.style.display = 'inline-block';
-        runAgain.onclick = ()=> _wb_startRunAgainCountdown(300);
-      }
-
+    function _hideInit(){
+      if (banner) banner.innerHTML = '';
+      if (runAgain){ runAgain.style.display='none'; runAgain.onclick = null; }
       try{
-        _tsBootEpochMs = bootEpoch ? (bootEpoch * 1000) : (_tsBootEpochMs ?? null);
-        _wb_startClock();
-        _wb_startWaitTicker();
-        if (_tsBootEpochMs){
-          const bootAt = document.getElementById('ts-boot-at');
-          if (bootAt) bootAt.textContent = _wb_formatTime(new Date(_tsBootEpochMs));
-        }
+        if (_tsClockTimer){ clearInterval(_tsClockTimer); _tsClockTimer = null; }
+        if (_tsWaitTimer){ clearInterval(_tsWaitTimer); _tsWaitTimer = null; }
+        _tsBootEpochMs = null;
       }catch(_){}
+    }
+
+    // ---- 1) أولاً: استخدم probe-init كالمعتاد
+    let info = (js && js.init) || {};
+    const num = v => (typeof v === 'number' && isFinite(v)) ? v : null;
+    let ageSec = num(info.age_sec) ?? num(info.boot_seconds_ago) ?? num(info.elapsed) ?? null;
+
+    if (ageSec === null && info.reason){
+      const s = String(info.reason);
+      let m = s.match(/(\d+)\s*s(?:ec(?:onds)?)?\s*ago/i)
+            || s.match(/boot(?:ed)?\s+(\d+)\s*s/i)
+            || s.match(/replug(?:ged)?\s+(\d+)\s*s/i);
+      if (m) ageSec = parseInt(m[1],10);
+    }
+
+    let bootEpoch = num(info.boot_epoch) ?? num(info.boot_ts) ?? num(info.boot_unix) ?? null;
+    if (!bootEpoch && ageSec!==null) bootEpoch = Math.floor(Date.now()/1000) - ageSec;
+    if (!bootEpoch && info.boot_time){
+      const parsed = Date.parse(info.boot_time);
+      if (!isNaN(parsed)) bootEpoch = Math.floor(parsed/1000);
+    }
+
+    let recent = (ageSec !== null) ? (ageSec < 300) : (info.recent === true);
+
+    // ---- 2) إن لم يكن حديثًا: افحص /api/system/info للـ replug (GeoSigner/SDR)
+    if (!recent){
+      const fb = await _wb_probeReplugFallback();
+      if (fb.recent){
+        recent = true;
+        ageSec = fb.ageSec ?? fb.age_seconds ?? null;
+        bootEpoch = fb.bootEpoch ?? fb.replugEpoch ?? (ageSec!=null ? Math.floor(Date.now()/1000)-ageSec : null);
+      }
+    }
+
+    if (!recent){ _hideInit(); return; }
+
+    // ---- 3) اعرض البطاقة
+    if (banner){
+      banner.innerHTML =
+        '<div class="ts-row ts-warn">'
+        +  '<div class="ts-title">' + L('ts_init_title') + ' &nbsp; <span class="ts-badge warn">' + L('ts_init_title') + '</span></div>'
+        +  '<div class="ts-details">' + L('ts_init_msg') + '</div>'
+        +  '<div class="ts-details" style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">'
+        +    '<div><strong>' + L('ts_init_now') + ':</strong> <span id="ts-now">--:--:--</span></div>'
+        +    '<div><strong>' + L('ts_init_boot_time') + ':</strong> <span id="ts-boot-at">--:--:--</span></div>'
+        +    '<div><strong>' + L('ts_init_remaining') + ':</strong> <span id="ts-wait-rem">180–300s</span></div>'
+        +  '</div>'
+        +'</div>';
+    }
+
+    if (runAgain){
+      runAgain.style.display = 'inline-block';
+      runAgain.onclick = ()=> _wb_startRunAgainCountdown(300);
+    }
+
+    try{
+      _tsBootEpochMs = bootEpoch ? (bootEpoch * 1000) : (_tsBootEpochMs ?? null);
+      _wb_startClock();
+      _wb_startWaitTicker();
+      if (_tsBootEpochMs){
+        const bootAt = document.getElementById('ts-boot-at');
+        if (bootAt) bootAt.textContent = _wb_formatTime(new Date(_tsBootEpochMs));
+      }
     }catch(_){}
-  }
+  }catch(_){}
+}
+
 
   // Execute Troubleshooter
   window.runTroubleshooter = async function(){
@@ -2695,4 +2754,3 @@ ${d.logs || "-"}
 
 </body>
 </html>
-
