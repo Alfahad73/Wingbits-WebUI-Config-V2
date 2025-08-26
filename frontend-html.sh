@@ -481,6 +481,15 @@ body.rtl .diagnostics-section {
         unknown: "Unknown",
         update_panel_now: "Update Panel",
         update_wingbits_now: "Update Wingbits Client",
+
+        /* NEW i18n for Smart Troubleshooter INIT + hints */
+        initializing: "Initializing",
+        init_msg: "Recent boot/replug detected. Wait 180–300 seconds, then run diagnostics again.",
+        now: "Current time",
+        boot_at: "Boot/replug time",
+        run_again_60: "Run again in 300s",
+        ts_readsb_hint_port_issue: "- readsb network/port output issue.",
+        ts_readsb_hint_cleared: "[Cleared] readsb currently healthy; older log warning ignored."
       },
       ar: {
         main_title: "إعداد محطة Wingbits عبر الويب",
@@ -576,6 +585,15 @@ body.rtl .diagnostics-section {
         unknown: "غير معروف",
         update_panel_now: "تحديث اللوحة",
         update_wingbits_now: "تحديث عميل Wingbits",
+
+        /* NEW i18n for Smart Troubleshooter INIT + hints */
+        initializing: "Initializing",
+        init_msg: "تم اكتشاف تشغيل/إعادة توصيل حديث. انتظر 180–300 ثانية ثم شغّل التشخيص مجددًا.",
+        now: "الوقت الحالي",
+        boot_at: "وقت التشغيل/إعادة التوصيل",
+        run_again_60: "أعد التشغيل بعد 300ث",
+        ts_readsb_hint_port_issue: "- مشكلة شبكة/منفذ لإخراج readsb.",
+        ts_readsb_hint_cleared: "[تم التجاهل] readsb يعمل حاليًا بشكل سليم؛ تم تجاهل تحذير قديم."
       }
     };
 
@@ -2145,7 +2163,6 @@ ${d.logs || "-"}
       } catch(_) {}
 
       // 2) Latest versions (via backend)
-      // Expected backend response: { ok:true, latest:{ panel:'vX.Y.Z', wingbits:'X.Y.Z' }, has_updates:{ panel:true/false, wingbits:true/false } }
       let latest = {};
       let has = { panel:false, wingbits:false };
       try {
@@ -2205,7 +2222,6 @@ ${d.logs || "-"}
       }
     }
 
-    // Update Panel (Web UI) using existing backend reinstall endpoint
     async function updatePanelNow(){
       const ok = await new Promise(resolve => {
         showCustomConfirm(LANG==='ar'?'تأكيد تحديث سكربت اللوحة؟':'Confirm updating the Panel script?', r => resolve(r));
@@ -2334,37 +2350,33 @@ ${d.logs || "-"}
 <!-- ===== Smart Troubleshooter injection (enhanced) [FIXED] ===== -->
 <script id="WB_TS_V3_INJECTION">
 ;(() => {
-  // i18n keys (safe add)
-  try {
-    window.txt = window.txt || {};
-    txt.en = txt.en || {}; txt.ar = txt.ar || {};
-    txt.en.troubleshooter = txt.en.troubleshooter || "Smart Troubleshooter";
-    txt.en.run_diagnostics = txt.en.run_diagnostics || "Run diagnostics";
-    txt.en.safe_fix = txt.en.safe_fix || "Enable safe auto-fix";
-    txt.en.summary_ok = txt.en.summary_ok || "Station is running normally.";
-    txt.en.summary_warn = txt.en.summary_warn || "Station is running with warnings.";
-    txt.en.summary_fail = txt.en.summary_fail || "Station is NOT healthy.";
+  // ==== i18n additions ====
+  const txt = window.txt || { en: {}, ar: {} };
 
-    // INIT texts
-    txt.en.initializing = txt.en.initializing || "Initializing";
-    txt.en.init_msg = txt.en.init_msg || "Recent boot/replug detected. Wait 180–300 seconds, then run diagnostics again.";
-    txt.en.run_again_60 = txt.en.run_again_60 || "Run again in 300s";
-    txt.en.now = txt.en.now || "Current time";
-    txt.en.boot_at = txt.en.boot_at || "Boot/replug time";
+  Object.assign(txt.en, {
+    ts_init_title: 'Initializing',
+    ts_init_msg: 'Recent boot/replug detected. Wait 180–300 seconds, then run diagnostics again.',
+    ts_init_now: 'Current time',
+    ts_init_boot_time: 'Boot/replug time',
+    ts_init_remaining: 'Remaining',
+    ts_readsb_hint_port_issue: '- readsb network/port output issue.',
+    ts_readsb_hint_cleared: '[Cleared] readsb currently healthy; older log warning ignored.',
+    run_again_60: 'Run again in 300s'
+  });
+  Object.assign(txt.ar, {
+    ts_init_title: 'Initializing',
+    ts_init_msg: 'تم اكتشاف تشغيل/إعادة توصيل حديث. انتظر 180–300 ثانية ثم شغّل التشخيص مجددًا.',
+    ts_init_now: 'الوقت الحالي',
+    ts_init_boot_time: 'وقت التشغيل/إعادة التوصيل',
+    ts_init_remaining: 'المتبقي',
+    ts_readsb_hint_port_issue: '- مشكلة شبكة/منفذ لإخراج readsb.',
+    ts_readsb_hint_cleared: '[تم التجاهل] readsb يعمل حاليًا بشكل سليم؛ تم تجاهل تحذير قديم.',
+    run_again_60: 'تشغيل مجددًا بعد 300 ثانية'
+  });
 
-    txt.ar.troubleshooter = txt.ar.troubleshooter || "أداة تشخيص ذكية";
-    txt.ar.run_diagnostics = txt.ar.run_diagnostics || "تشغيل التشخيص";
-    txt.ar.safe_fix = txt.ar.safe_fix || "تفعيل الإصلاح التلقائي الآمن";
-    txt.ar.summary_ok = txt.ar.summary_ok || "المحطة تعمل بشكل طبيعي.";
-    txt.ar.summary_warn = txt.ar.summary_warn || "المحطة تعمل مع تحذيرات.";
-    txt.ar.summary_fail = txt.ar.summary_fail || "المحطة ليست بحالة جيدة.";
-
-    txt.ar.initializing = txt.ar.initializing || "جارٍ التهيئة";
-    txt.ar.init_msg = txt.ar.init_msg || "تمّ اكتشاف تشغيل/إعادة توصيل حديث. انتظر 180–300 ثانية ثم اضغط تشغيل التشخيص مجددًا.";
-    txt.ar.run_again_60 = txt.ar.run_again_60 || "تشغيل مجددًا بعد 300 ثانية";
-    txt.ar.now = txt.ar.now || "الوقت الحالي";
-    txt.ar.boot_at = txt.ar.boot_at || "وقت التشغيل/إعادة التوصيل";
-  } catch(e) {}
+  // Translator
+  window.LANG = (window.LANG === 'ar' || window.LANG === 'en') ? window.LANG : 'en';
+  function L(k){ return (txt[window.LANG] && txt[window.LANG][k]) || (txt.en && txt.en[k]) || k; }
 
   // ---- Time & Wait helpers ----
   let _tsClockTimer = null;
@@ -2390,68 +2402,28 @@ ${d.logs || "-"}
       }
     }catch(_){}
   }
-  function _wb_startWaitTicker(){try{if(_tsWaitTimer)clearInterval(_tsWaitTimer); _wb_updateWaitRemaining(); _tsWaitTimer=setInterval(_wb_updateWaitRemaining,1000)}catch(_){}}
+  function _wb_startWaitTicker(){try{if(_tsWaitTimer)clearInterval(_tsWaitTimer); _wb_updateWaitRemaining(); _tsWaitTimer=setInterval(_wb_updateWaitRemaining,1000)}catch(_){ }}
 
   // Infer status
   function _wb_inferStatus(details, status, title){
-  const t  = (details||'').toLowerCase();
-  const ti = (title||'').toLowerCase();
+    const t  = (details||'').toLowerCase();
+    const ti = (title||'').toLowerCase();
 
-  // لا ترفع الشدة لبطاقات الخدمات؛ اعتمد على is-active من الباكند
-  if (/(readsb|wingbits|tar1090)\s+service/.test(ti)) return status || 'OK';
+    if (/(readsb|wingbits|tar1090)\s+service/.test(ti)) return status || 'OK';
 
-  // أنماط غير حرجة (تعاملها كتحذير فقط)
-  const benign = [
-    'connection refused',     // readsb json_out بلا مستلم
-    'update check failed',    // فحص تحديث wingbits العابر
-  ];
-  if (benign.some(p => t.includes(p))) {
-    return status === 'FAIL' ? 'WARN' : (status || 'WARN');
-  }
+    const benign = ['connection refused','update check failed'];
+    if (benign.some(p => t.includes(p))) {
+      return status === 'FAIL' ? 'WARN' : (status || 'WARN');
+    }
 
-  // أخطاء حقيقية فقط (صيَغ واضحة)
-  const hardErr =
-      /\b(active:\s*failed|unit .* failed|failed to start|error:)\b/i.test(details||'')
-   || /\b(no geosigner device found|geosigner not available|geosigner is not linked)\b/i.test(t)
-   || /[✗×]/.test(details || '');
+    const hardErr =
+        /\b(active:\s*failed|unit .* failed|failed to start|error:)\b/i.test(details||'')
+     || /\b(no geosigner device found|geosigner not available|geosigner is not linked)\b/i.test(t)
+     || /[✗×]/.test(details || '');
 
-  if (hardErr) return 'FAIL';
-  if (/\bwarn(ing)?\b/i.test(t)) return status === 'OK' ? 'WARN' : (status || 'WARN');
-  return status || 'OK';
-}
-
-
-  function _wb_filterDetailsByLang(text){
-    try{
-      const lang = (typeof window.LANG !== 'undefined' && window.LANG) || localStorage.getItem('wb_lang') || 'en';
-      if (!text) return text;
-      const lines = (''+text).split(/\r?\n/);
-      const hasArabic = s => /[\u0600-\u06FF]/.test(s);
-      const cleaned = lines.map(line => {
-        if (lang === 'en'){
-          if (hasArabic(line)){
-            const i = line.search(/[\u0600-\u06FF]/);
-            if (i > 0) return line.slice(0, i).replace(/[\s\-–—]+$/,'').trim();
-            return '';
-          }
-          return line;
-        } else {
-          return line;
-        }
-      }).filter(Boolean);
-      return cleaned.join('\n').replace(/\s+\.+\s*$/,'').replace(/\s{2,}/g,' ');
-    }catch(e){ return text; }
-  }
-
-  function _wb_renderNextSteps(lines, status){
-    const color = '#c62828';
-    return (
-      '<div class="ts-details" style="margin-top:10px;border-top:1px dashed #e6eaf2;padding-top:10px">'
-      + `<div style="font-weight:800;color:${color};margin-bottom:6px">Next steps:</div>`
-      + '<ul style="margin:0 0 0 18px;padding:0;list-style:disc;">'
-      + lines.map(l=>`<li style="margin:4px 0">${l}</li>`).join('')
-      + '</ul></div>'
-    );
+    if (hardErr) return 'FAIL';
+    if (/\bwarn(ing)?\b/i.test(t)) return status === 'OK' ? 'WARN' : (status || 'WARN');
+    return status || 'OK';
   }
 
   function addTSButton(){
@@ -2537,7 +2509,7 @@ ${d.logs || "-"}
     } catch (_) {}
   }
 
-  /* ==== FIXED: Robust INIT probe banner (shows ONLY if <300s, and fills boot time) ==== */
+  // INIT probe banner
   async function _wb_probeInitAndRenderBanner(){
     try{
       const token = (typeof AUTH_TOKEN!=='undefined'&&AUTH_TOKEN)||localStorage.getItem('auth_token')||'';
@@ -2548,7 +2520,6 @@ ${d.logs || "-"}
       const banner = document.getElementById('ts-init-banner');
       const runAgain = document.getElementById('ts-run-again');
 
-      // Clear function
       function _hideInit(){
         if (banner) banner.innerHTML = '';
         if (runAgain){ runAgain.style.display='none'; runAgain.onclick = null; }
@@ -2562,13 +2533,11 @@ ${d.logs || "-"}
       if (!js || !js.ok || !js.init){ _hideInit(); return; }
 
       const info = js.init || {};
-      // Try to get elapsed seconds since boot/replug from multiple possible fields
       let ageSec = null;
 
       const num = v => (typeof v === 'number' && isFinite(v)) ? v : null;
       ageSec = num(info.age_sec) ?? num(info.boot_seconds_ago) ?? num(info.elapsed);
 
-      // Try parse from reason string like: "system booted 123s ago" or "replug 64s ago"
       if (ageSec === null && info.reason){
         const s = String(info.reason);
         let m = s.match(/(\d+)\s*s(?:ec(?:onds)?)?\s*ago/i)
@@ -2580,54 +2549,40 @@ ${d.logs || "-"}
         }
       }
 
-      // Boot epoch detection (unix seconds) from multiple possible fields
       let bootEpoch = null;
       bootEpoch = num(info.boot_epoch) ?? num(info.boot_ts) ?? num(info.boot_unix);
       if (!bootEpoch && ageSec!==null) bootEpoch = Math.floor(Date.now()/1000) - ageSec;
 
-      // Fallback: try parse a date string if provided
       if (!bootEpoch && info.boot_time){
         const parsed = Date.parse(info.boot_time);
         if (!isNaN(parsed)) bootEpoch = Math.floor(parsed/1000);
       }
 
-      // Decide if we should show INIT banner (ONLY if recent < 300s)
       const recent = (ageSec !== null) ? (ageSec < 300) : (info.recent === true);
       if (!recent){ _hideInit(); return; }
 
-      // Render banner
       if (banner){
         banner.innerHTML =
           '<div class="ts-row ts-warn">'
-          +  '<div class="ts-title">'
-          +    (window.LANG==='ar'?txt.ar.initializing:txt.en.initializing)
-          +    ' &nbsp; <span class="ts-badge warn">'
-          +    (window.LANG==='ar'?txt.ar.initializing:txt.en.initializing)
-          +    '</span>'
-          +  '</div>'
-          +  '<div class="ts-details">'
-          +    (window.LANG==='ar'?txt.ar.init_msg:txt.en.init_msg)
-          +  '</div>'
+          +  '<div class="ts-title">' + L('ts_init_title') + ' &nbsp; <span class="ts-badge warn">' + L('ts_init_title') + '</span></div>'
+          +  '<div class="ts-details">' + L('ts_init_msg') + '</div>'
           +  '<div class="ts-details" style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">'
-          +    '<div><strong>' + (window.LANG==='ar'?txt.ar.now:txt.en.now) + ':</strong> <span id="ts-now">--:--:--</span></div>'
-          +    '<div><strong>' + (window.LANG==='ar'?txt.ar.boot_at:txt.en.boot_at) + ':</strong> <span id="ts-boot-at">--:--:--</span></div>'
-          +    '<div><strong>' + (window.LANG==='ar'?'المتبقي':'Remaining') + ':</strong> <span id="ts-wait-rem">180–300s</span></div>'
+          +    '<div><strong>' + L('ts_init_now') + ':</strong> <span id="ts-now">--:--:--</span></div>'
+          +    '<div><strong>' + L('ts_init_boot_time') + ':</strong> <span id="ts-boot-at">--:--:--</span></div>'
+          +    '<div><strong>' + L('ts_init_remaining') + ':</strong> <span id="ts-wait-rem">180–300s</span></div>'
           +  '</div>'
           +'</div>';
       }
 
-      // Prepare run-again button
       if (runAgain){
         runAgain.style.display = 'inline-block';
         runAgain.onclick = ()=> _wb_startRunAgainCountdown(300);
       }
 
-      // Start live clock + remaining ticker
       try{
         _tsBootEpochMs = bootEpoch ? (bootEpoch * 1000) : (_tsBootEpochMs ?? null);
         _wb_startClock();
-        _wb_startWaitTicker();         // will fill remaining + boot_at
-        // Force immediate fill for boot_at if we already know it
+        _wb_startWaitTicker();
         if (_tsBootEpochMs){
           const bootAt = document.getElementById('ts-boot-at');
           if (bootAt) bootAt.textContent = _wb_formatTime(new Date(_tsBootEpochMs));
@@ -2636,7 +2591,7 @@ ${d.logs || "-"}
     }catch(_){}
   }
 
-  /* ==== Execute Troubleshooter ==== */
+  // Execute Troubleshooter
   window.runTroubleshooter = async function(){
     const resultsEl = document.getElementById('ts-results');
     const summaryEl = document.getElementById('ts-summary');
@@ -2664,7 +2619,6 @@ ${d.logs || "-"}
       }
 
       const js = await res.json();
-      // Update INIT banner after run
       _wb_probeInitAndRenderBanner();
 
       if (!js || js.ok === false) throw new Error((js && js.msg) || 'Failed');
@@ -2677,7 +2631,7 @@ ${d.logs || "-"}
           checks = checks.map(x => {
             if ((x.title||'').toLowerCase().includes('readsb recent log hints')){
               x.status = 'OK';
-              x.details = (x.details||'') + '\n\n[Cleared] readsb currently healthy; older log warning ignored.';
+              x.details = (x.details||'') + '\n\n' + L('ts_readsb_hint_cleared');
             }
             return x;
           });
@@ -2704,6 +2658,13 @@ ${d.logs || "-"}
           const cls = c.status==='OK'?'ts-ok':(c.status==='WARN'?'ts-warn':'ts-fail');
           let det = (c.details||'')
             .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          // Language filter for hints (English when LANG=en)
+          if ((c.title||'').toLowerCase().includes('readsb recent log hints')) {
+            det = det.split('\n').map(line=>{
+              if (window.LANG==='en' && /[\u0600-\u06FF]/.test(line)) return '';
+              return line;
+            }).filter(Boolean).join('\n');
+          }
           return (
             '<div class="ts-row '+cls+'">'
             +  '<div class="ts-title">'+(c.title||'')+' &nbsp; '+badge(c.status)+'</div>'
@@ -2734,3 +2695,4 @@ ${d.logs || "-"}
 
 </body>
 </html>
+
