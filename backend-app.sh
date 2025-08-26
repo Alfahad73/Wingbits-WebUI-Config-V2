@@ -1276,6 +1276,20 @@ def serve_frontend(path):
 def _initialization_state():
     info = {"state": False, "reason": ""}
     reasons = []
+    # Prefer the udev tracker file if present (fresh within 300s)
+    try:
+        with open("/var/lib/wingbits/usb-replug.json") as f:
+            data = json.load(f)
+        for key, r in (("last_geosigner","GeoSigner replug"),
+                       ("last_sdr","SDR dongle replug"),
+                       ("last_event","USB replug")):
+            ts = int(data.get(key, {}).get("epoch", 0))
+            if ts and now - ts < 300:
+                recent = True
+                reasons.append(r)
+                break
+    except Exception:
+        pass
     now = time.time()
     try:
         bt = psutil.boot_time()
@@ -1315,6 +1329,26 @@ def api_troubleshoot_probe_init():
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)}), 500
 
+@app.get("/api/troubleshoot/probe-init")
+def api_probe_init():
+    path = "/var/lib/wingbits/usb-replug.json"
+    now = int(time.time())
+    init = {"recent": False}
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        ts = None; reason = None
+        for key, r in (("last_geosigner","GeoSigner replug"),
+                       ("last_sdr","SDR dongle replug"),
+                       ("last_event","USB replug")):
+            if key in data and "epoch" in data[key]:
+                ts = int(data[key]["epoch"]); reason = r; break
+        if ts:
+            age = max(0, now - ts)
+            init.update({"recent": age < 300, "age_sec": age, "boot_epoch": ts, "reason": reason})
+    except Exception:
+        pass
+    return jsonify({"ok": True, "init": init})
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=WEB_PANEL_RUN_PORT)
 EOF
