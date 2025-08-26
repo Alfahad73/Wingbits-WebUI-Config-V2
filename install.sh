@@ -233,6 +233,135 @@ echo ""
 
 
 # Write backend application (app.py) and frontend (index.html)
+# --- Install USB tracker (udev) for Wingbits ---
+echo "[*] Installing USB tracker (udev) ..."
+sudo install -d -m 755 /var/lib/wingbits
+
+# 1) udev script: /usr/local/bin/wb_usb_track.py
+sudo tee /usr/local/bin/wb_usb_track.py >/dev/null <<'PY'
+#!/usr/bin/env python3
+# wb_usb_track.py - invoked by udev on ACTION=add/remove for DEVTYPE=usb_device
+# Writes /var/lib/wingbits/usb-replug.json with recent USB events and tags known devices.
+import os, json, time, sys, traceback
+
+STATE_FILE = "/var/lib/wingbits/usb-replug.json"
+STATE_DIR  = os.path.dirname(STATE_FILE)
+
+def read_env():
+    env = {k: os.environ.get(k, "") for k in (
+        "ACTION","DEVPATH","PRODUCT","ID_VENDOR_ID","ID_MODEL_ID",
+        "ID_VENDOR","ID_MODEL","ID_SERIAL","ID_SERIAL_SHORT","ID_BUS"
+    )}
+    vid = env.get("ID_VENDOR_ID") or ""
+    pid = env.get("ID_MODEL_ID") or ""
+    if not (vid and pid) and env.get("PRODUCT"):
+        parts = env["PRODUCT"].split("/")
+        if len(parts) >= 2:
+            vid, pid = parts[0], parts[1]
+    env["VIDPID"] = f"{vid.lower()}:{pid.lower()}" if vid and pid else ""
+    return env
+
+def tag_device(env):
+    vidpid = env.get("VIDPID","")
+    vendor = (env.get("ID_VENDOR") or "").lower()
+    model  = (env.get("ID_MODEL")  or "").lower()
+    product = f"{vendor} {model}".strip()
+
+    # GeoSigner (Espressif)
+    if vidpid in ("303a:1001",):
+        return "geosigner", "Espressif 303a:1001"
+    if "espressif" in product or "jtag" in model or "serial_debug" in model:
+        return "geosigner", f"match:{product}"
+
+    # SDR RTL2832U (Realtek)
+    if vidpid == "0bda:2832":
+        return "sdr", "Realtek RTL2832U 0bda:2832"
+    if "realtek" in vendor and ("rtl2832" in model or "rtl" in model):
+        return "sdr", f"match:{product}"
+
+    return "usb", product or "usb-device"
+
+def load_state():
+    try:
+        with open(STATE_FILE, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+    except Exception:
+        try:
+            os.rename(STATE_FILE, STATE_FILE + ".bak")
+        except Exception:
+            pass
+        return {}
+
+def atomic_write(path, obj):
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(obj, f, ensure_ascii=False, indent=2, sort_keys=True)
+        f.write("\n")
+    os.replace(tmp, path)
+
+def main():
+    try:
+        os.makedirs(STATE_DIR, exist_ok=True)
+    except Exception:
+        pass
+
+    env = read_env()
+    now = int(time.time())
+    action = env.get("ACTION") or "change"
+    role, note = tag_device(env)
+
+    state = load_state()
+    state["last_event"] = {
+        "epoch": now,
+        "action": action,
+        "vidpid": env.get("VIDPID",""),
+        "vendor": env.get("ID_VENDOR",""),
+        "model": env.get("ID_MODEL",""),
+        "serial": env.get("ID_SERIAL_SHORT") or env.get("ID_SERIAL") or ""
+    }
+
+    if role == "geosigner":
+        state["last_geosigner"] = {
+            "epoch": now, "action": action, "vidpid": env.get("VIDPID",""), "note": note
+        }
+    elif role == "sdr":
+        state["last_sdr"] = {
+            "epoch": now, "action": action, "vidpid": env.get("VIDPID",""), "note": note
+        }
+
+    hist = state.get("history", [])
+    hist.append({
+        "epoch": now, "action": action, "role": role, "vidpid": env.get("VIDPID",""),
+        "vendor": env.get("ID_VENDOR",""), "model": env.get("ID_MODEL","")
+    })
+    state["history"] = hist[-10:]
+
+    try:
+        atomic_write(STATE_FILE, state)
+    except Exception:
+        traceback.print_exc()
+        try:
+            sys.stderr.write("wb_usb_track.py: failed to write state file\n")
+        except Exception:
+            pass
+
+if __name__ == "__main__":
+    main()
+PY
+sudo chmod 755 /usr/local/bin/wb_usb_track.py
+
+# 2) udev rule: /etc/udev/rules.d/90-wingbits-usb.rules
+sudo tee /etc/udev/rules.d/90-wingbits-usb.rules >/dev/null <<'RULES'
+ACTION=="add",    SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", RUN+="/usr/local/bin/wb_usb_track.py"
+ACTION=="remove", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", RUN+="/usr/local/bin/wb_usb_track.py"
+RULES
+
+# 3) reload + trigger
+sudo udevadm control --reload
+sudo udevadm trigger -s usb || true
+echo "[*] USB tracker installed."
 "$SCRIPT_DIR/backend-app.sh"
 "$SCRIPT_DIR/frontend-html.sh"
 
