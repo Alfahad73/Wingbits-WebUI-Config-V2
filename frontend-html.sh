@@ -2393,18 +2393,33 @@ ${d.logs || "-"}
   function _wb_startWaitTicker(){try{if(_tsWaitTimer)clearInterval(_tsWaitTimer); _wb_updateWaitRemaining(); _tsWaitTimer=setInterval(_wb_updateWaitRemaining,1000)}catch(_){}}
 
   // Infer status
-  function _wb_inferStatus(details, status){
-    const t = (details || '').toLowerCase();
-    if (t.includes('warning') && (t.includes('ignored') || t.includes('cleared'))) return status || 'OK';
-    const hard = t.includes('failed') || t.includes('error')
-      || t.includes('no geosigner device found')
-      || t.includes('geosigner not available')
-      || t.includes('geosigner is not linked')
-      || /[✗×]/.test(details || '');
-    if (hard) return 'FAIL';
-    if (t.includes('warn')) return status === 'OK' ? 'WARN' : (status || 'WARN');
-    return status || 'OK';
+  function _wb_inferStatus(details, status, title){
+  const t  = (details||'').toLowerCase();
+  const ti = (title||'').toLowerCase();
+
+  // لا ترفع الشدة لبطاقات الخدمات؛ اعتمد على is-active من الباكند
+  if (/(readsb|wingbits|tar1090)\s+service/.test(ti)) return status || 'OK';
+
+  // أنماط غير حرجة (تعاملها كتحذير فقط)
+  const benign = [
+    'connection refused',     // readsb json_out بلا مستلم
+    'update check failed',    // فحص تحديث wingbits العابر
+  ];
+  if (benign.some(p => t.includes(p))) {
+    return status === 'FAIL' ? 'WARN' : (status || 'WARN');
   }
+
+  // أخطاء حقيقية فقط (صيَغ واضحة)
+  const hardErr =
+      /\b(active:\s*failed|unit .* failed|failed to start|error:)\b/i.test(details||'')
+   || /\b(no geosigner device found|geosigner not available|geosigner is not linked)\b/i.test(t)
+   || /[✗×]/.test(details || '');
+
+  if (hardErr) return 'FAIL';
+  if (/\bwarn(ing)?\b/i.test(t)) return status === 'OK' ? 'WARN' : (status || 'WARN');
+  return status || 'OK';
+}
+
 
   function _wb_filterDetailsByLang(text){
     try{
@@ -2654,7 +2669,7 @@ ${d.logs || "-"}
 
       if (!js || js.ok === false) throw new Error((js && js.msg) || 'Failed');
 
-      let checks = (js.checks || []).map(c => ({...c, status: _wb_inferStatus(c.details, c.status)}));
+      let checks = (js.checks || []).map(c => ({ ...c, status: _wb_inferStatus(c.details, c.status, c.title) }));
 
       try{
         const readsbHealthy = (checks || []).some(x => /wingbits detailed status/i.test(x.title||'') && /data input status:\s*ok/i.test(x.details||''));
