@@ -1078,6 +1078,8 @@ def _resources_steps(res: dict):
 
 @app.route('/api/troubleshoot/run', methods=['POST'])
 @login_required
+@app.route('/api/troubleshoot/run', methods=['POST'])
+@login_required
 def api_troubleshoot_run():
     req = request.get_json(silent=True) or {}
     apply_fix = bool(req.get("apply_fix", False))
@@ -1085,280 +1087,176 @@ def api_troubleshoot_run():
     checks = []
     summary_warnings = 0
     summary_fail = 0
-    safe_actions = []
 
-    # 1) Internet
+    # 1) Internet connectivity
     try:
         r = requests.get("https://1.1.1.1", timeout=3)
-        online = (r.status_code in (200,301,302))
-    except requests.RequestException:
+        online = (r.status_code in (200, 301, 302))
+    except Exception:
         online = False
     checks.append({
-        "id":"internet","title":"Internet connectivity",
+        "id": "internet",
+        "title": "Internet connectivity",
         "status": _status_label(online),
         "details": f"http(s) to 1.1.1.1 => {'OK' if online else 'UNREACHABLE'}"
     })
     if not online:
         summary_fail += 1
 
-    # 2) Wingbits API
+    # 2) Wingbits API reachability
     try:
         r2 = requests.get("https://api.wingbits.com/ping", timeout=5)
         api_ok = (r2.status_code == 200)
-    except requests.RequestException:
+    except Exception:
         api_ok = False
     checks.append({
-        "id":"wingbits_api","title":"Wingbits API reachability",
+        "id": "wingbits_api",
+        "title": "Wingbits API reachability",
         "status": _status_label(api_ok, warn=(online and not api_ok)),
         "details": f"GET /ping => {'200 OK' if api_ok else 'unreachable'}"
     })
     if not api_ok:
-        if online: summary_warnings += 1
-        else: summary_fail += 1
+        summary_fail += 0 if not online else 1
 
     # 3) Services basic
-    readsb_active = _svc_active("readsb")
+    readsb_active  = _svc_active("readsb")
     wingbits_active = _svc_active("wingbits")
     tar1090_active = _svc_active("tar1090")
 
-    checks += [
-        {"id":"svc_readsb","title":"readsb service","status":_status_label(readsb_active),"details":_status_head('readsb')},
-        {"id":"svc_wingbits","title":"wingbits service","status":_status_label(wingbits_active),"details":_status_head('wingbits')},
-        {"id":"svc_tar1090","title":"tar1090 service","status":_status_label(tar1090_active, warn=False),"details":_status_head('tar1090')}
-    ]
+    checks.append({
+        "id": "svc_readsb",
+        "title": "readsb service",
+        "status": _status_label(readsb_active),
+        "details": run_shell("systemctl status readsb --no-pager -l | sed -n '1,12p' 2>&1")
+    })
     if not readsb_active:
         summary_fail += 1
-        safe_actions.append(("Restart readsb","sudo systemctl restart readsb"))
+
+    checks.append({
+        "id": "svc_wingbits",
+        "title": "wingbits service",
+        "status": _status_label(wingbits_active),
+        "details": run_shell("systemctl status wingbits --no-pager -l | sed -n '1,12p' 2>&1")
+    })
     if not wingbits_active:
         summary_fail += 1
-        safe_actions.append(("Restart wingbits","sudo systemctl restart wingbits"))
 
-    # 4) SDR dongle
-sdr_lines, sdr_found = _lsusb_sdr_lines()
-sdr_details = "No RTL/SDR device in lsusb."
-if sdr_found:
-    sdr_details = "\n".join(sdr_lines)
-
-sdr_chk = {
-    "id": "sdr",
-    "title": "SDR dongle detected (lsusb)",
-    "status": _status_label(sdr_found),
-    "details": sdr_details
-}
-if not sdr_found:
-    sdr_chk["steps"] = _sdr_steps()
-
-checks.append(sdr_chk)
-if not sdr_found:
-    summary_fail += 1
-
-
-    
-    # 5.1) readsb restarts (last 24h)
-    try:
-        rs = _readsb_restart_count(24)
-        avg_h = (24.0/rs) if rs > 0 else None
-        # Classification: Warning if ~ once every 2–4 hours (6–12/day), Fail if more frequent (>12/day)
-        status = "OK"
-        note = ""
-        if rs == 0:
-            status = "OK"
-            note = "no restarts observed in the last 24h"
-        elif rs <= 5:
-            status = "OK"
-            note = "occasional restarts (<=5)"
-        elif 6 <= rs <= 12:
-            status = "WARN"
-            note = "frequency ~ once every 2–4 hours (warning threshold)"
-        else:
-            status = "FAIL"
-            note = "frequency > once every 2 hours (fail threshold)"
-        freq = f" ~ every {avg_h:.1f}h" if avg_h else ""
-        details = f"restart events counted in journal: {rs}{freq}\n{note}"
-        details += "\nGuidance: frequent restarts often indicate power/USB instability for the SDR."
-        checks.append({"id":"readsb_restarts_24h","title":"readsb restarts (last 24h)","status":status,"details":details})
-        if status == "WARN":
-            summary_warnings += 1
-        elif status == "FAIL":
-            summary_fail += 1
-    except Exception as _e:
-        checks.append({"id":"readsb_restarts_24h","title":"readsb restarts (last 24h)","status":"WARN","details":f"Could not compute restarts: {_e}"})
-        summary_warnings += 1
-# 6) readsb recent log hints
-    readsb_log = _journal_tail("readsb", n=200)
-    hints = _parse_readsb_hints(readsb_log)
-    hint_status = "OK" if not hints else "WARN"
-    checks.append({"id":"readsb_hints","title":"readsb recent log hints","status":hint_status,"details":("No obvious errors." if not hints else "\n".join(hints) + "\n\nSee Support → readsb logs for details")})
-    if hints:
-        summary_warnings += 1
-
-    # 7) Wingbits detailed status
-    wb_verbose = _wb_status_verbose()
-    has_upd_fail = bool(re.search(r'update check failed', wb_verbose, re.I))
-    wb_status = _status_label(True, warn=has_upd_fail)
-    extra = "\nNote: Update check failed (non-critical). Marked as warning." if has_upd_fail else ""
-    checks.append({"id":"wb_verbose","title":"wingbits detailed status","status":wb_status,"details":wb_verbose + extra})
-
-    # --- GeoSigner details used by the next two cards ---
-    gps_raw = _geosigner_info()
-    gps_lat, gps_lon, sats = _parse_geosigner_info_txt(gps_raw)
-    gs_id, gs_ver = _parse_geosigner_meta(gps_raw)
-
-    # 8) GeoSigner vs stated location  (now directly after wingbits detailed status)
-    stated_lat, stated_lon = _readsb_config_location()
-    loc_details = "GPS/stated location unavailable."
-    loc_ok = True
-    if gps_lat is not None and gps_lon is not None and stated_lat is not None and stated_lon is not None:
-        try:
-            delta_km = round(_haversine_km(gps_lat, gps_lon, stated_lat, stated_lon), 3)
-            loc_ok = (delta_km <= 0.3)  # 300m tolerance
-            loc_details = (
-                f"GPS: {gps_lat:.6f},{gps_lon:.6f} (sats={sats or 'n/a'})\n"
-                f"Stated(readsb): {stated_lat:.6f},{stated_lon:.6f}\n"
-                f"Δ = {delta_km} km"
-            )
-        except Exception as _e:
-            loc_ok = False
-            loc_details = f"Failed to compute distance: {_e}"
-    else:
-        loc_ok = False
     checks.append({
-        "id": "location_consistency",
-        "title": "GeoSigner vs stated location",
-        "status": _status_label(loc_ok, warn=not loc_ok),
-        "details": loc_details
+        "id": "svc_tar1090",
+        "title": "tar1090 service",
+        "status": _status_label(tar1090_active),
+        "details": run_shell("systemctl status tar1090 --no-pager -l | sed -n '1,12p' 2>&1")
     })
-    if not loc_ok:
-        summary_warnings += 1
-        # NOTE: we never auto-fix location differences.
+    if not tar1090_active:
+        summary_fail += 1
 
-    # 9) GeoSigner brief (placed right under the previous card)
-    ok_gs = (gps_lat is not None and gps_lon is not None and (sats or 0) > 0)
-    lat_s = f"{gps_lat:.6f}" if gps_lat is not None else "n/a"
-    lon_s = f"{gps_lon:.6f}" if gps_lon is not None else "n/a"
-    sat_s = f"{sats}" if sats is not None else "n/a"
-    ready_line = "✓ GeoSigner is ready to use" if ok_gs else "GeoSigner not ready (no fix yet)"
-    gs_details = (
-        f"GeoSigner ID: {gs_id or 'unknown'}\n"
-        f"GeoSigner Version: {gs_ver or 'unknown'}\n"
-        f"Location data: Latitude: {lat_s}, Longitude: {lon_s}, Satellites: {sat_s}\n"
-        f"{ready_line}"
-    )
-    checks.append({"id":"geosigner_brief","title":"GeoSigner","status":_status_label(ok_gs),"details":gs_details})
+    # 4) SDR dongle (lsusb)
+    try:
+        sdr_lines, sdr_found = _lsusb_sdr_lines()
+    except Exception:
+        sdr_lines, sdr_found = [], False
+    sdr_details = "No RTL/SDR device in lsusb." if not sdr_found else "\n".join(sdr_lines)
+    sdr_chk = {
+        "id": "sdr",
+        "title": "SDR dongle detected (lsusb)",
+        "status": _status_label(sdr_found, warn=not sdr_found),
+        "details": sdr_details
+    }
+    if not sdr_found:
+        try:
+            sdr_chk["steps"] = _sdr_steps()
+        except Exception:
+            pass
+        summary_fail += 1
+    checks.append(sdr_chk)
 
-    # 10) Time sync (NTP)
-    ntp_ok = _ntp_synced()
-    checks.append({"id":"ntp","title":"Time sync (NTP)","status":_status_label(ntp_ok),"details":f"NTPSynchronized={ntp_ok}"})
-    if not ntp_ok:
-        summary_warnings += 1
-        safe_actions.append(("Enable NTP sync","sudo timedatectl set-ntp true ; sudo systemctl restart systemd-timesyncd || true"))
+    # 5) GeoSigner brief
+    try:
+        raw = run_shell("sudo wingbits geosigner info 2>&1")
+        gps_lat, gps_lon, sats = _parse_geosigner_info_txt(raw)
+        ok_gs = gps_lat is not None and gps_lon is not None
+        geosigner_details = raw.strip()[:2000]
+    except Exception as e:
+        ok_gs = False
+        geosigner_details = f"Failed to query GeoSigner: {e}"
+    geosigner_row = {
+        "id": "geosigner_brief",
+        "title": "GeoSigner",
+        "status": _status_label(ok_gs, warn=not ok_gs),
+        "details": geosigner_details
+    }
+    if not ok_gs:
+        try:
+            geosigner_row["steps"] = _geosigner_steps()
+        except Exception:
+            pass
+        summary_fail += 1
+    checks.append(geosigner_row)
 
-    # 11) Resources
-    res = _summarize_resources()
-    res_ok = (res["disk_free_gb"] > 1 and res["ram_free_mb"] > 64)
-    checks.append({"id":"resources","title":"Resources (disk/memory)","status":_status_label(res_ok, warn=not res_ok),"details":f"Disk free: {res['disk_free_gb']} GB\nRAM free: {res['ram_free_mb']} MB"})
-    if not res_ok:
-        summary_warnings += 1
+    # 6) Location consistency (GeoSigner vs stated readsb)
+    try:
+        stated_lat, stated_lon = _readsb_config_location()
+        loc_ok = False
+        loc_details = "Stated location not set in readsb."
+        if stated_lat is not None and stated_lon is not None and ok_gs and gps_lat is not None and gps_lon is not None:
+            try:
+                delta_km = round(_haversine_km(gps_lat, gps_lon, stated_lat, stated_lon), 3)
+                loc_ok = (delta_km is not None and delta_km <= 1.0)
+                loc_details = f"GPS: {gps_lat:.6f},{gps_lon:.6f} (sats={sats or 'n/a'})\n" \
+                              f"Stated(readsb): {stated_lat:.6f},{stated_lon:.6f}\n" \
+                              f"Δ = {delta_km} km"
+            except Exception as _e:
+                loc_ok = False
+                loc_details = f"Failed to compute distance: {_e}"
+        checks.append({
+            "id": "location_consistency",
+            "title": "GeoSigner vs stated location",
+            "status": _status_label(loc_ok, warn=not loc_ok),
+            "details": loc_details
+        })
+        if not loc_ok:
+            summary_warnings += 1
+    except Exception:
+        pass
 
-        # Inject suggested "Next steps" for failing checks
+    # Apply safe auto-fix if requested
+    autofix = {"applied": [], "state": None}
+    if apply_fix:
+        try:
+            actions, enabled, active = _autofix_readsb()
+            autofix["applied"].extend(actions)
+            autofix["state"] = {"enabled": enabled, "active": active}
+        except Exception:
+            pass
+        try:
+            actions, enabled, active = _autofix_wingbits()
+            autofix["applied"].extend(actions)
+            autofix["state"] = {"enabled": enabled, "active": active}
+        except Exception:
+            pass
+
+    # Inject generic Next steps
     try:
         idmap = {c.get("id"): c for c in checks}
-
-        # Internet connectivity
-        if 'online' in locals() and not online:
-            if idmap.get('internet') is not None:
-                idmap['internet']['steps'] = _internet_steps()
-
-        # Wingbits API reachability
-        if 'api_ok' in locals() and not api_ok:
-            if idmap.get('wingbits_api') is not None:
-                idmap['wingbits_api']['steps'] = _api_steps()
-
-        # Services
-        if 'readsb_active' in locals() and not readsb_active:
-            if idmap.get('svc_readsb') is not None:
-                idmap['svc_readsb']['steps'] = _svc_steps('readsb')
-        if 'wingbits_active' in locals() and not wingbits_active:
-            if idmap.get('svc_wingbits') is not None:
-                idmap['svc_wingbits']['steps'] = _svc_steps('wingbits')
-        if 'tar1090_active' in locals() and not tar1090_active:
-            if idmap.get('svc_tar1090') is not None:
-                idmap['svc_tar1090']['steps'] = _svc_steps('tar1090')
-
-        # GeoSigner
-        if 'ok_gs' in locals() and not ok_gs:
-            if idmap.get('geosigner_brief') is not None:
-                idmap['geosigner_brief']['steps'] = _geosigner_steps()
-
-        # Time sync (NTP)
-        if 'ntp_ok' in locals() and not ntp_ok:
-            if idmap.get('ntp') is not None:
-                idmap['ntp']['steps'] = _ntp_steps()
-
-        # Resources
-        if 'res' in locals():
-            low_disk = res.get('disk_free_gb', 999) < 2
-            low_ram = res.get('ram_free_mb', 99999) < 200
-            if low_disk or low_ram:
-                if idmap.get('resources') is not None:
-                    idmap['resources']['steps'] = _resources_steps(res)
-    except Exception:
-        pass
-    
-
-    # Summary
-    overall = "OK"
-    if summary_fail > 0:
-        overall = "ERROR"
-    elif summary_warnings > 0:
-        overall = "WARN"
-
-    # Execute planned safe actions (restart services etc.)
-    applied_safe = []
-    if apply_fix and safe_actions:
-        for title, cmd in safe_actions:
-            out = run_shell(cmd)
-            applied_safe.append({"action": title, "result": out[:4000]})
-
-    # Auto-fix for masked/disabled wingbits ONLY (no location changes)
-    autofix = {"applied": []}
-    if apply_fix:
-        actions, enabled, active = _autofix_wingbits()
-        autofix["applied"].extend(actions)
-        autofix["state"] = {"enabled": enabled, "active": active}
-
-    # Attach "Next steps" to stopped services
-    try:
-        if not readsb_active:
-            for c in checks:
-                if c.get("id") == "svc_readsb":
-                    c["steps"] = _svc_steps("readsb")
-                    c["details"] = (c.get("details","") + "\nreadsb service is not running.").strip()
-
-        if not wingbits_active:
-            for c in checks:
-                if c.get("id") == "svc_wingbits":
-                    c["steps"] = _svc_steps("wingbits")
-                    c["details"] = (c.get("details","") + "\nWingbits service is not running.").strip()
-
-        if 'tar1090_active' in locals() and not tar1090_active:
-            for c in checks:
-                if c.get("id") == "svc_tar1090":
-                    c["steps"] = _svc_steps("tar1090")
-                    c["details"] = (c.get("details","") + "\ntar1090 service is not running.").strip()
+        if not online and idmap.get('internet'):
+            idmap['internet']['steps'] = _internet_steps()
+        if online and not api_ok and idmap.get('wingbits_api'):
+            idmap['wingbits_api']['steps'] = _api_steps()
+        if not readsb_active and idmap.get('svc_readsb'):
+            idmap['svc_readsb']['steps'] = _svc_steps('readsb')
+        if not wingbits_active and idmap.get('svc_wingbits'):
+            idmap['svc_wingbits']['steps'] = _svc_steps('wingbits')
+        if not tar1090_active and idmap.get('svc_tar1090'):
+            idmap['svc_tar1090']['steps'] = _svc_steps('tar1090')
     except Exception:
         pass
 
-
+    overall = "OK" if (summary_fail == 0 and summary_warnings == 0) else ("WARN" if summary_fail == 0 else "FAIL")
     return jsonify({
         "ok": True,
         "summary": {"overall": overall, "fails": summary_fail, "warnings": summary_warnings},
         "checks": checks,
-        "autofix": {
-            "applied": applied_safe + autofix["applied"],
-            "planned": [{"title": a, "cmd": c} for a, c in safe_actions],
-            "state": autofix.get("state", None)
-        }
+        "autofix": autofix
     })
 
 # ----------------- NEW GeoSigner APIs -----------------
