@@ -1007,9 +1007,6 @@ def _autofix_wingbits():
 
     return applied, enabled, active
 
-@app.route('/api/troubleshoot/run', methods=['POST'])
-@login_required
-
 # -------- Troubleshooter "Next steps" helpers --------
 def _svc_steps(name: str):
     return [
