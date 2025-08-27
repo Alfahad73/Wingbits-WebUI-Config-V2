@@ -233,3 +233,12 @@ echo ""
 
 
 # Write backend application (app.py) and frontend (index.html)
+"$SCRIPT_DIR/backend-app.sh"
+"$SCRIPT_DIR/frontend-html.sh"
+
+# --- Final steps ---
+# Sets up the systemd service and displays the final message.
+"$SCRIPT_DIR/systemd-service.sh"
+"$SCRIPT_DIR/final-message.sh"
+
+exit 0
