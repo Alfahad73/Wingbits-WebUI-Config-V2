@@ -1040,6 +1040,17 @@ def _geosigner_steps():
         "sudo systemctl restart wingbits"
     ]
 
+def _sdr_steps():
+    return [
+        "lsusb | grep -Ei 'RTL|2832|Realtek|R820T' || echo 'no RTL-SDR found'",
+        "dmesg | tail -n 200 | grep -Ei 'usb|rtl|rtlsdr|rtl2832|r820t' | tail -n 80",
+        "Try another USB port/cable; avoid unpowered hubs; if on Raspberry Pi, use a powered USB hub.",
+        "Check power (Raspberry Pi): vcgencmd get_throttled   # 0x0 is good",
+        "If running in a VM/container, enable USB passthrough for the RTL-SDR dongle.",
+        "Install/verify usbutils (provides lsusb): sudo apt-get install -y usbutils",
+        "Optional test: rtl_test -t  (install with: sudo apt-get install -y rtl-sdr)"
+    ]
+
 def _ntp_steps():
     return [
         "timedatectl status",
@@ -1064,7 +1075,7 @@ def _resources_steps(res: dict):
     except Exception:
         pass
     return tips
-    
+
 @app.route('/api/troubleshoot/run', methods=['POST'])
 @login_required
 def api_troubleshoot_run():
@@ -1123,27 +1134,24 @@ def api_troubleshoot_run():
         safe_actions.append(("Restart wingbits","sudo systemctl restart wingbits"))
 
     # 4) SDR dongle
-    sdr_lines, sdr_found = _lsusb_sdr_lines()
-    sdr_details = "No RTL/SDR device in lsusb."
-    if sdr_found:
-        sdr_details = "\n".join(sdr_lines)
-    checks.append({"id":"sdr","title":"SDR dongle detected (lsusb)","status":_status_label(sdr_found),"details":sdr_details})
-    if not sdr_found:
-        summary_fail += 1
+sdr_lines, sdr_found = _lsusb_sdr_lines()
+sdr_details = "No RTL/SDR device in lsusb."
+if sdr_found:
+    sdr_details = "\n".join(sdr_lines)
 
-    # 5) readsb data flow
-    stats = _read_readsb_stats()
-    flow_ok = _readsb_flow_ok(stats) if readsb_active else False
-    flow_details = "stats.json not found."
-    if stats:
-        msgs = stats.get("last1min",{}).get("messages_valid",0)
-        ac_pos = stats.get("aircraft_with_pos",0)
-        ac_nop = stats.get("aircraft_without_pos",0)
-        flow_details = f"messages_valid(last1min): {msgs}\naircraft: {ac_pos+ac_nop} (pos:{ac_pos}, no_pos:{ac_nop})"
-    checks.append({"id":"readsb_flow","title":"readsb data flow","status":_status_label(flow_ok, warn=(readsb_active and not flow_ok)),"details":flow_details})
-    if readsb_active and not flow_ok:
-        summary_warnings += 1
-        safe_actions.append(("Restart readsb (no data)","sudo systemctl restart readsb"))
+sdr_chk = {
+    "id": "sdr",
+    "title": "SDR dongle detected (lsusb)",
+    "status": _status_label(sdr_found),
+    "details": sdr_details
+}
+if not sdr_found:
+    sdr_chk["steps"] = _sdr_steps()
+
+checks.append(sdr_chk)
+if not sdr_found:
+    summary_fail += 1
+
 
     
     # 5.1) readsb restarts (last 24h)
