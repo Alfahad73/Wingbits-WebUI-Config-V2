@@ -874,6 +874,15 @@ def _status_label(ok_bool, warn=False):
         return "OK"
     return "WARN" if warn else "FAIL"
 
+# -------- Helper: suggested next steps for stopped services --------
+def _svc_steps(name: str):
+    return [
+        f"sudo systemctl restart {name}",
+        f"sudo systemctl enable {name}",
+        f"sudo journalctl -u {name} -n 50 --no-pager"
+    ]
+
+
 # -------- Geo location helpers (NEW) --------
 def _haversine_km(lat1, lon1, lat2, lon2):
     from math import radians, sin, cos, asin, sqrt
@@ -1000,6 +1009,65 @@ def _autofix_wingbits():
 
 @app.route('/api/troubleshoot/run', methods=['POST'])
 @login_required
+
+# -------- Troubleshooter "Next steps" helpers --------
+def _svc_steps(name: str):
+    return [
+        f"sudo systemctl restart {name}",
+        f"sudo systemctl enable {name}",
+        f"sudo journalctl -u {name} -n 50 --no-pager"
+    ]
+
+def _internet_steps():
+    return [
+        "ping -c 2 1.1.1.1",
+        "ping -c 2 google.com",
+        "ip addr && ip route",
+        "sudo systemctl restart NetworkManager || sudo systemctl restart networking"
+    ]
+
+def _api_steps():
+    return [
+        "getent hosts api.wingbits.com",
+        "curl -I https://api.wingbits.com/ -m 10",
+        "sudo systemctl restart wingbits",
+        "sudo journalctl -u wingbits -n 50 --no-pager"
+    ]
+
+def _geosigner_steps():
+    return [
+        "lsusb | grep -i 303a:1001 || echo 'GeoSigner not found by VID:PID'",
+        "dmesg | grep -i ttyACM | tail -n 20",
+        "ls -l /dev/ttyACM*",
+        "Try different USB port/cable; unplug/replug the device",
+        "sudo systemctl restart wingbits"
+    ]
+
+def _ntp_steps():
+    return [
+        "timedatectl status",
+        "sudo timedatectl set-ntp true",
+        "sudo systemctl restart systemd-timesyncd",
+        "sudo journalctl -u systemd-timesyncd -n 50 --no-pager"
+    ]
+
+def _resources_steps(res: dict):
+    tips = [
+        "df -h",
+        "free -m",
+        "sudo du -xh /var/log | sort -h | tail -n 20",
+        "sudo apt-get clean"
+    ]
+    # Optional hints based on thresholds if present
+    try:
+        if res.get("disk_free_gb", 999) < 2:
+            tips.insert(0, "# Low disk space: free up space (logs, caches, old packages)")
+        if res.get("ram_free_mb", 99999) < 200:
+            tips.insert(0, "# Low memory: reduce concurrent processes or increase swap")
+    except Exception:
+        pass
+    return tips
+
 def api_troubleshoot_run():
     req = request.get_json(silent=True) or {}
     apply_fix = bool(req.get("apply_fix", False))
@@ -1185,6 +1253,52 @@ def api_troubleshoot_run():
     if not res_ok:
         summary_warnings += 1
 
+        # Inject suggested "Next steps" for failing checks
+    try:
+        idmap = {c.get("id"): c for c in checks}
+
+        # Internet connectivity
+        if 'online' in locals() and not online:
+            if idmap.get('internet') is not None:
+                idmap['internet']['steps'] = _internet_steps()
+
+        # Wingbits API reachability
+        if 'api_ok' in locals() and not api_ok:
+            if idmap.get('wingbits_api') is not None:
+                idmap['wingbits_api']['steps'] = _api_steps()
+
+        # Services
+        if 'readsb_active' in locals() and not readsb_active:
+            if idmap.get('svc_readsb') is not None:
+                idmap['svc_readsb']['steps'] = _svc_steps('readsb')
+        if 'wingbits_active' in locals() and not wingbits_active:
+            if idmap.get('svc_wingbits') is not None:
+                idmap['svc_wingbits']['steps'] = _svc_steps('wingbits')
+        if 'tar1090_active' in locals() and not tar1090_active:
+            if idmap.get('svc_tar1090') is not None:
+                idmap['svc_tar1090']['steps'] = _svc_steps('tar1090')
+
+        # GeoSigner
+        if 'ok_gs' in locals() and not ok_gs:
+            if idmap.get('geosigner_brief') is not None:
+                idmap['geosigner_brief']['steps'] = _geosigner_steps()
+
+        # Time sync (NTP)
+        if 'ntp_ok' in locals() and not ntp_ok:
+            if idmap.get('ntp') is not None:
+                idmap['ntp']['steps'] = _ntp_steps()
+
+        # Resources
+        if 'res' in locals():
+            low_disk = res.get('disk_free_gb', 999) < 2
+            low_ram = res.get('ram_free_mb', 99999) < 200
+            if low_disk or low_ram:
+                if idmap.get('resources') is not None:
+                    idmap['resources']['steps'] = _resources_steps(res)
+    except Exception:
+        pass
+    
+
     # Summary
     overall = "OK"
     if summary_fail > 0:
@@ -1205,6 +1319,29 @@ def api_troubleshoot_run():
         actions, enabled, active = _autofix_wingbits()
         autofix["applied"].extend(actions)
         autofix["state"] = {"enabled": enabled, "active": active}
+
+    # Attach "Next steps" to stopped services
+    try:
+        if not readsb_active:
+            for c in checks:
+                if c.get("id") == "svc_readsb":
+                    c["steps"] = _svc_steps("readsb")
+                    c["details"] = (c.get("details","") + "\nreadsb service is not running.").strip()
+
+        if not wingbits_active:
+            for c in checks:
+                if c.get("id") == "svc_wingbits":
+                    c["steps"] = _svc_steps("wingbits")
+                    c["details"] = (c.get("details","") + "\nWingbits service is not running.").strip()
+
+        if 'tar1090_active' in locals() and not tar1090_active:
+            for c in checks:
+                if c.get("id") == "svc_tar1090":
+                    c["steps"] = _svc_steps("tar1090")
+                    c["details"] = (c.get("details","") + "\ntar1090 service is not running.").strip()
+    except Exception:
+        pass
+
 
     return jsonify({
         "ok": True,
@@ -1272,56 +1409,42 @@ def serve_frontend(path):
         return send_from_directory(root, "index.html")
 
 
-# -------- Initialization probe helpers (new) --------
+# -------- Initialization probe helpers (updated; no udev tracker) --------
 def _initialization_state():
-    info = {"state": False, "reason": ""}
+    now = int(time.time())
     reasons = []
-    # Prefer the udev tracker file if present (fresh within 300s)
+
+    # 1) very recent boot (uptime < 120s)
     try:
-        with open("/var/lib/wingbits/usb-replug.json") as f:
-            data = json.load(f)
-        for key, r in (("last_geosigner","GeoSigner replug"),
-                       ("last_sdr","SDR dongle replug"),
-                       ("last_event","USB replug")):
-            ts = int(data.get(key, {}).get("epoch", 0))
-            if ts and now - ts < 300:
-                recent = True
-                reasons.append(r)
-                break
-    except Exception:
-        pass
-    now = time.time()
-    try:
-        bt = psutil.boot_time()
-        if bt:
-            up = now - bt
-            if up < 120:
-                reasons.append(f"system booted {int(up)}s ago")
+        up = now - int(psutil.boot_time())
+        if up < 120:
+            reasons.append(f"system booted {up}s ago")
     except Exception:
         pass
 
-    # recent readsb/wingbits restarts in last 2 minutes
-    for svc in ("readsb", "wingbits"):
+    # 2) service restarts within last 2 minutes
+    for svc in ("readsb", "wingbits", "tar1090"):
         try:
-            out = run_shell(f'journalctl -u {svc} --since "2 minutes ago" --no-pager | grep -E "Starting|Started" | tail -n 1')
-            if out and "Error executing" not in out and out.strip():
+            out = run_shell(
+                f'journalctl -u {svc} --since "2 minutes ago" --no-pager | '
+                'grep -E "Starting|Started" | tail -n 1'
+            )
+            if out and out.strip():
                 reasons.append(f"{svc} restarted recently")
         except Exception:
             pass
 
-    # recent USB connect/disconnect/reset (best-effort)
+    # 3) recent USB activity (best-effort)
     try:
-        dm = run_shell("dmesg --ctime | tail -n 200")
-        if re.search(r'usb\s+\d-\d.*(disconnect|connect|reset)', dm, re.I):
+        dm = run_shell('dmesg --ctime --color=never | tail -n 300')
+        if re.search(r'\busb\s+\d-\d.*(disconnect|connect|reset)\b', dm, re.I):
             reasons.append("recent USB connect/disconnect")
     except Exception:
         pass
 
-    info["state"] = bool(reasons)
-    info["reason"] = "; ".join(reasons) if reasons else ""
-    return info
+    return {"state": bool(reasons), "reason": "; ".join(reasons) if reasons else ""}
 
-@app.route('/api/troubleshoot/probe-init', methods=['GET'])
+@app.get("/api/troubleshoot/probe-init")
 @login_required
 def api_troubleshoot_probe_init():
     try:
@@ -1329,26 +1452,6 @@ def api_troubleshoot_probe_init():
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)}), 500
 
-@app.get("/api/troubleshoot/probe-init")
-def api_probe_init():
-    path = "/var/lib/wingbits/usb-replug.json"
-    now = int(time.time())
-    init = {"recent": False}
-    try:
-        with open(path) as f:
-            data = json.load(f)
-        ts = None; reason = None
-        for key, r in (("last_geosigner","GeoSigner replug"),
-                       ("last_sdr","SDR dongle replug"),
-                       ("last_event","USB replug")):
-            if key in data and "epoch" in data[key]:
-                ts = int(data[key]["epoch"]); reason = r; break
-        if ts:
-            age = max(0, now - ts)
-            init.update({"recent": age < 300, "age_sec": age, "boot_epoch": ts, "reason": reason})
-    except Exception:
-        pass
-    return jsonify({"ok": True, "init": init})
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=WEB_PANEL_RUN_PORT)
 EOF
