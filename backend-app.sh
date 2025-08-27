@@ -1064,7 +1064,9 @@ def _resources_steps(res: dict):
     except Exception:
         pass
     return tips
-
+    
+@app.route('/api/troubleshoot/run', methods=['POST'])
+@login_required
 def api_troubleshoot_run():
     req = request.get_json(silent=True) or {}
     apply_fix = bool(req.get("apply_fix", False))
