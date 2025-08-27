@@ -2713,31 +2713,47 @@ async function _wb_probeReplugFallback(){
                                              : '<span class="ts-badge fail">FAIL</span>';
 
       if (resultsEl){
-        resultsEl.innerHTML = (checks||[]).map(c=>{
-          const cls = c.status==='OK'?'ts-ok':(c.status==='WARN'?'ts-warn':'ts-fail');
-          let det = (c.details||'')
-            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-          // Language filter for hints (English when LANG=en)
-          if ((c.title||'').toLowerCase().includes('readsb recent log hints')) {
-            det = det.split('\n').map(line=>{
-              if (window.LANG==='en' && /[\u0600-\u06FF]/.test(line)) return '';
-              return line;
-            }).filter(Boolean).join('\n');
-          }
-          return (
-            '<div class="ts-row '+cls+'">'
-            +  '<div class="ts-title">'+(c.title||'')+' &nbsp; '+badge(c.status)+'</div>'
-            +  '<div class="ts-details">'+det+'</div>'
-            +'</div>'
-          );
-        }).join('')
+  resultsEl.innerHTML =
+    (checks||[]).map(c=>{
+      const cls = c.status==='OK' ? 'ts-ok' : (c.status==='WARN' ? 'ts-warn' : 'ts-fail');
+      const esc = s => (''+s).replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
 
-        + ((js.autofix && js.autofix.applied && js.autofix.applied.length)
-          ? ('<div class="ts-row ts-ok"><div class="ts-title">Auto-fix actions</div><div class="ts-details">'
-              + js.autofix.applied.map(a=>'• '+a.action+'\n'+(a.result||'')).join('\n\n')
-              + '</div></div>')
-          : '');
+      // جهّز التفاصيل مع فلترة العربية عندما LANG=en
+      let detRaw = c.details || '';
+      if ((c.title||'').toLowerCase().includes('readsb recent log hints')) {
+        detRaw = detRaw.split('\n').map(line=>{
+          if (window.LANG==='en' && /[\u0600-\u06FF]/.test(line)) return '';
+          return line;
+        }).filter(Boolean).join('\n');
       }
+      const det = esc(detRaw);
+
+      // عرض Next steps إن وُجدت
+      let stepsBlock = '';
+      if (Array.isArray(c.steps) && c.steps.length){
+        const label = (window.LANG==='ar' ? 'الخطوات المقترحة' : 'Next steps');
+        stepsBlock =
+          '<div class="ts-details" style="margin-top:8px"><b>'+label+':</b>\n'
+          + c.steps.map(s=>'• '+esc(s)).join('\n')
+          + '</div>';
+      }
+
+      return (
+        '<div class="ts-row '+cls+'">'
+        +  '<div class="ts-title">'+esc(c.title||'')+' &nbsp; '+badge(c.status)+'</div>'
+        +  '<div class="ts-details">'+det+'</div>'
+        +  stepsBlock
+        +'</div>'
+      );
+    }).join('')
+
+    + ((js.autofix && js.autofix.applied && js.autofix.applied.length)
+      ? ('<div class="ts-row ts-ok"><div class="ts-title">Auto-fix actions</div><div class="ts-details">'
+          + js.autofix.applied.map(a=>'• '+esc(a.action)+'\n'+esc(a.result||'')).join('\n\n')
+          + '</div></div>')
+      : '');
+}
+
     }catch(e){
       if (resultsEl){
         let msg = (e && e.message) || 'Error';
