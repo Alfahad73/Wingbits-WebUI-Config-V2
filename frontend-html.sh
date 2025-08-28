@@ -484,7 +484,7 @@ body.rtl .diagnostics-section {
 
         /* NEW i18n for Smart Troubleshooter INIT + hints */
         initializing: "Initializing",
-        init_msg: "Recent boot/replug detected. Wait 180–300 seconds, then run diagnostics again.",
+        init_msg: "Recent boot/replug detected. For best diagnostic result wait 180–300 seconds, then run diagnostics again.",
         now: "Current time",
         boot_at: "Boot/replug time",
         run_again_60: "Run again in 300s",
@@ -2355,7 +2355,7 @@ ${d.logs || "-"}
 
   Object.assign(txt.en, {
     ts_init_title: 'Initializing',
-    ts_init_msg: 'Recent boot/replug detected. Wait 180–300 seconds, then run diagnostics again.',
+    ts_init_msg: 'Recent boot/replug detected. For best diagnostic result wait ts_init_remaining seconds, then run diagnostics again.',
     ts_init_now: 'Current time',
     ts_init_boot_time: 'Boot/replug time',
     ts_init_remaining: 'Remaining',
