@@ -1147,35 +1147,45 @@ def api_troubleshoot_run():
 
     
     # 5.1) readsb restarts (last 24h)
-    try:
+        try:
         rs = _readsb_restart_count(24)
         avg_h = (24.0/rs) if rs > 0 else None
-        # Classification: Warning if ~ once every 2–4 hours (6–12/day), Fail if more frequent (>12/day)
-        status = "OK"
-        note = ""
+
+        # تصنيف جديد: بدون FAIL
+        # 0–5 => OK  |  6–12 => WARN  |  >12 => HIGH WARN
         if rs == 0:
-            status = "OK"
-            note = "no restarts observed in the last 24h"
+            status = "OK";   note = "no restarts observed in the last 24h"
         elif rs <= 5:
-            status = "OK"
-            note = "occasional restarts (<=5)"
+            status = "OK";   note = "occasional restarts (<=5)"
         elif 6 <= rs <= 12:
-            status = "WARN"
-            note = "frequency ~ once every 2–4 hours (warning threshold)"
+            status = "WARN"; note = "frequency ~ once every 2–4 hours (warning threshold)"
         else:
-            status = "FAIL"
-            note = "frequency > once every 2 hours (fail threshold)"
+            status = "HIGH_WARN"; note = "frequency > once every 2 hours (high warning)"
+
         freq = f" ~ every {avg_h:.1f}h" if avg_h else ""
-        details = f"restart events counted in journal: {rs}{freq}\n{note}"
-        details += "\nGuidance: frequent restarts often indicate power/USB instability for the SDR."
-        checks.append({"id":"readsb_restarts_24h","title":"readsb restarts (last 24h)","status":status,"details":details})
-        if status == "WARN":
+        details = f"restart events counted in journal: {rs}{freq}\n{note}\n" \
+                  "Guidance: frequent restarts often indicate power/USB instability for the SDR."
+
+        checks.append({
+            "id":"readsb_restarts_24h",
+            "title":"readsb restarts (last 24h)",
+            "status": status,
+            "details": details
+        })
+
+        # HIGH_WARN
+        if status in ("WARN", "HIGH_WARN"):
             summary_warnings += 1
-        elif status == "FAIL":
-            summary_fail += 1
+
     except Exception as _e:
-        checks.append({"id":"readsb_restarts_24h","title":"readsb restarts (last 24h)","status":"WARN","details":f"Could not compute restarts: {_e}"})
+        checks.append({
+            "id":"readsb_restarts_24h",
+            "title":"readsb restarts (last 24h)",
+            "status":"WARN",
+            "details":f"Could not compute restarts: {_e}"
+        })
         summary_warnings += 1
+
 # 6) readsb recent log hints
     readsb_log = _journal_tail("readsb", n=200)
     hints = _parse_readsb_hints(readsb_log)
