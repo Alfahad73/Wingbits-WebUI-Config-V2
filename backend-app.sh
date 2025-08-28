@@ -1408,40 +1408,79 @@ def serve_frontend(path):
         return send_from_directory(root, "index.html")
 
 
-# -------- Initialization probe helpers (updated; no udev tracker) --------
+# -------- Initialization probe helpers (5 min, with epoch) --------
 def _initialization_state():
     now = int(time.time())
-    reasons = []
+    init = {"recent": False, "reason": ""}
 
-    # 1) very recent boot (uptime < 120s)
+    # 1) Recent system boot (<= 300s)
     try:
-        up = now - int(psutil.boot_time())
-        if up < 120:
-            reasons.append(f"system booted {up}s ago")
+        boot_epoch = int(psutil.boot_time())
+        age = max(0, now - boot_epoch)
+        init["boot_epoch"] = boot_epoch
+        init["boot_seconds_ago"] = age
+        if age < 300:
+            init.update({
+                "recent": True,
+                "age_sec": age,
+                "source": "boot",
+                "reason": f"system booted {age}s ago"
+            })
+            return init
     except Exception:
         pass
 
-    # 2) service restarts within last 2 minutes
-    for svc in ("readsb", "wingbits", "tar1090"):
+    # 2) Recent USB connect/disconnect/reset (last 10 min, kernel log)
+    try:
+        out = subprocess.check_output(
+            ['bash', '-lc',
+             'journalctl -k --since "10 minutes ago" -o short-unix --no-pager '
+             '| grep -Ei "usb [0-9-]+:.*(disconnect|connect|reset)" | tail -n 1'],
+            stderr=subprocess.STDOUT
+        ).decode(errors='ignore')
+        m = re.match(r'^\s*([0-9]+\.[0-9]+)\s', out)
+        if m:
+            ts = int(float(m.group(1)))
+            age = max(0, now - ts)
+            if age < 300:
+                init.update({
+                    "recent": True,
+                    "age_sec": age,
+                    "boot_epoch": ts,
+                    "source": "usb",
+                    "reason": "recent USB connect/disconnect/reset"
+                })
+                return init
+    except Exception:
+        pass
+
+    # 3) Recent service restarts (readsb/wingbits) within 5 min
+    for svc in ("readsb", "wingbits"):
         try:
-            out = run_shell(
-                f'journalctl -u {svc} --since "2 minutes ago" --no-pager | '
-                'grep -E "Starting|Started" | tail -n 1'
-            )
-            if out and out.strip():
-                reasons.append(f"{svc} restarted recently")
+            out = subprocess.check_output(
+                ['bash', '-lc',
+                 f'journalctl -u {svc} --since "5 minutes ago" -o short-unix --no-pager '
+                 '| grep -E "Starting|Started" | tail -n 1'],
+                stderr=subprocess.STDOUT
+            ).decode(errors='ignore')
+            m = re.match(r'^\s*([0-9]+\.[0-9]+)\s', out)
+            if m:
+                ts = int(float(m.group(1)))
+                age = max(0, now - ts)
+                if age < 300:
+                    init.update({
+                        "recent": True,
+                        "age_sec": age,
+                        "boot_epoch": ts,
+                        "source": f"svc:{svc}",
+                        "reason": f"{svc} restarted {age}s ago"
+                    })
+                    return init
         except Exception:
             pass
 
-    # 3) recent USB activity (best-effort)
-    try:
-        dm = run_shell('dmesg --ctime --color=never | tail -n 300')
-        if re.search(r'\busb\s+\d-\d.*(disconnect|connect|reset)\b', dm, re.I):
-            reasons.append("recent USB connect/disconnect")
-    except Exception:
-        pass
+    return init
 
-    return {"state": bool(reasons), "reason": "; ".join(reasons) if reasons else ""}
 
 @app.get("/api/troubleshoot/probe-init")
 @login_required
