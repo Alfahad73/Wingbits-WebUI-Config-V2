@@ -2353,7 +2353,7 @@ ${d.logs || "-"}
   // ==== i18n additions ====
   const txt = window.txt || { en: {}, ar: {} };
 
-  Object.assign(txt.en, {
+ Object.assign(txt.en, {
   ts_init_title: 'Initializing',
   ts_init_msg: 'Recent boot/replug detected. For best diagnostic result wait <span id="ts-rem-inline">180–300s</span>, then run diagnostics again.',
   ts_init_now: 'Current time',
@@ -2366,7 +2366,7 @@ ${d.logs || "-"}
 
 Object.assign(txt.ar, {
   ts_init_title: 'Initializing',
-  ts_init_msg: 'تم اكتشاف تشغيل/إعادة توصيل حديث. للحصول على أفضل نتيجة انتظر <span id="ts-rem-inline">180–300 ثانية</span> ثم شغّل التشخيص مجددًا.',
+  ts_init_msg: 'تم اكتشاف تشغيل/إعادة توصيل حديث. للحصول على أفضل نتيجة انتظر <span id="ts-rem-inline">180–300s</span> ثم شغّل التشخيص مجددًا.',
   ts_init_now: 'الوقت الحالي',
   ts_init_boot_time: 'وقت التشغيل/إعادة التوصيل',
   ts_init_remaining: 'المتبقي',
@@ -2389,21 +2389,27 @@ Object.assign(txt.ar, {
   function _wb_tickClock(){try{const el=document.getElementById('ts-now'); if(el) el.textContent=_wb_formatTime(new Date())}catch(_){}}
   function _wb_startClock(){try{if(_tsClockTimer)clearInterval(_tsClockTimer); _wb_tickClock(); _tsClockTimer=setInterval(_wb_tickClock,1000)}catch(_){}}  
   function _wb_updateWaitRemaining(){
-    try{
-      const rem=document.getElementById('ts-wait-rem');
-      const bootAt=document.getElementById('ts-boot-at');
-      if (!rem) return;
-      if (_tsBootEpochMs){
-        const elapsed=Math.max(0,Math.floor((Date.now()-_tsBootEpochMs)/1000));
-        const minR=Math.max(0,180-elapsed);
-        const maxR=Math.max(0,300-elapsed);
-        rem.textContent=(minR+'–'+maxR+'s');
-        if (bootAt) bootAt.textContent=_wb_formatTime(new Date(_tsBootEpochMs));
-      } else {
-        rem.textContent='180–300s';
-      }
-    }catch(_){}
-  }
+  try{
+    const rem = document.getElementById('ts-wait-rem');        // السطر تحت "Remaining"
+    const remInline = document.getElementById('ts-rem-inline'); // داخل الرسالة
+    const bootAt = document.getElementById('ts-boot-at');
+    if (!rem) return;
+
+    if (_tsBootEpochMs){
+      const elapsed = Math.max(0, Math.floor((Date.now()-_tsBootEpochMs)/1000));
+      const minR = Math.max(0, 180 - elapsed);
+      const maxR = Math.max(0, 300 - elapsed);
+      const txt = (minR + '–' + maxR + 's');
+      rem.textContent = txt;
+      if (remInline) remInline.textContent = txt;
+      if (bootAt) bootAt.textContent = _wb_formatTime(new Date(_tsBootEpochMs));
+    } else {
+      rem.textContent = '180–300s';
+      if (remInline) remInline.textContent = '180–300s';
+    }
+  }catch(_){}
+}
+
   function _wb_startWaitTicker(){try{if(_tsWaitTimer)clearInterval(_tsWaitTimer); _wb_updateWaitRemaining(); _tsWaitTimer=setInterval(_wb_updateWaitRemaining,1000)}catch(_){ }}
 
   // Infer status
