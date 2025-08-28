@@ -2553,6 +2553,17 @@ async function _wb_probeReplugFallback(){
     const r = await fetch('/api/system/info',{headers:{'X-Auth-Token':token}});
     if (!r.ok) return {recent:false};
     const js = await r.json();
+    const d = (js && js.info) || {};
+
+// NEW: use uptime_hr as a boot-age hint (<= 5 min)
+if (Number.isFinite(d.uptime_hr)) {
+  const age = Math.floor(d.uptime_hr * 3600);
+  if (age < 300) {
+    const bootEpoch = Math.floor(Date.now()/1000) - age;
+    return {recent:true, ageSec: age, bootEpoch};
+  }
+}
+
     const ageSec = _wb_scanObjectForReplugAgeSec(js);
     if (Number.isFinite(ageSec) && ageSec < 300){
       const bootEpoch = Math.floor(Date.now()/1000) - ageSec;
