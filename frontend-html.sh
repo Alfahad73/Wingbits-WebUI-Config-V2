@@ -2354,25 +2354,27 @@ ${d.logs || "-"}
   const txt = window.txt || { en: {}, ar: {} };
 
   Object.assign(txt.en, {
-    ts_init_title: 'Initializing',
-    ts_init_msg: 'Recent boot/replug detected. For best diagnostic result wait Remaining seconds, then run diagnostics again.',
-    ts_init_now: 'Current time',
-    ts_init_boot_time: 'Boot/replug time',
-    ts_init_remaining: 'Remaining',
-    ts_readsb_hint_port_issue: '- readsb network/port output issue.',
-    ts_readsb_hint_cleared: '[Cleared] readsb currently healthy; older log warning ignored.',
-    run_again_60: 'Run again in 300s'
-  });
-  Object.assign(txt.ar, {
-    ts_init_title: 'Initializing',
-    ts_init_msg: 'تم اكتشاف تشغيل/إعادة توصيل حديث. انتظر 180–300 ثانية ثم شغّل التشخيص مجددًا.',
-    ts_init_now: 'الوقت الحالي',
-    ts_init_boot_time: 'وقت التشغيل/إعادة التوصيل',
-    ts_init_remaining: 'المتبقي',
-    ts_readsb_hint_port_issue: '- مشكلة شبكة/منفذ لإخراج readsb.',
-    ts_readsb_hint_cleared: '[تم التجاهل] readsb يعمل حاليًا بشكل سليم؛ تم تجاهل تحذير قديم.',
-    run_again_60: 'تشغيل مجددًا بعد 300 ثانية'
-  });
+  ts_init_title: 'Initializing',
+  ts_init_msg: 'Recent boot/replug detected. For best diagnostic result wait <span id="ts-rem-inline">180–300s</span>, then run diagnostics again.',
+  ts_init_now: 'Current time',
+  ts_init_boot_time: 'Boot/replug time',
+  ts_init_remaining: 'Remaining',
+  ts_readsb_hint_port_issue: '- readsb network/port output issue.',
+  ts_readsb_hint_cleared: '[Cleared] readsb currently healthy; older log warning ignored.',
+  run_again_60: 'Run again in 300s'
+});
+
+Object.assign(txt.ar, {
+  ts_init_title: 'Initializing',
+  ts_init_msg: 'تم اكتشاف تشغيل/إعادة توصيل حديث. للحصول على أفضل نتيجة انتظر <span id="ts-rem-inline">180–300 ثانية</span> ثم شغّل التشخيص مجددًا.',
+  ts_init_now: 'الوقت الحالي',
+  ts_init_boot_time: 'وقت التشغيل/إعادة التوصيل',
+  ts_init_remaining: 'المتبقي',
+  ts_readsb_hint_port_issue: '- مشكلة شبكة/منفذ في readsb.',
+  ts_readsb_hint_cleared: '[تم التجاهل] readsb يعمل حاليًا بشكل سليم؛ تم تجاوز تحذير قديم.',
+  run_again_60: 'تشغيل مجددًا بعد 300 ثانية'
+});
+
 
   // Translator
   window.LANG = (window.LANG === 'ar' || window.LANG === 'en') ? window.LANG : 'en';
