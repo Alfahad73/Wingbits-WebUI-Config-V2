@@ -2727,14 +2727,23 @@ if (Number.isFinite(d.uptime_hr)) {
                            : (window.LANG==='ar'?'المحطة ليست بحالة جيدة.':'Station is NOT healthy.');
       }
 
-      const badge = (state)=> state==='OK' ? '<span class="ts-badge ok">OK</span>'
-                            : state==='WARN' ? '<span class="ts-badge warn">WARN</span>'
-                                             : '<span class="ts-badge fail">FAIL</span>';
+      const badge = (state)=> 
+  state === 'OK' ? '<span class="ts-badge ok">OK</span>' :
+  (state === 'WARN' ? '<span class="ts-badge warn">WARN</span>' :
+  (state === 'HIGH_WARN' || state === 'HI_WARN'
+    ? '<span class="ts-badge warn">HIGH WARN</span>'
+    : '<span class="ts-badge fail">FAIL</span>'));
+
 
       if (resultsEl){
   resultsEl.innerHTML =
     (checks||[]).map(c=>{
-      const cls = c.status==='OK' ? 'ts-ok' : (c.status==='WARN' ? 'ts-warn' : 'ts-fail');
+      const cls = (c.status === 'OK') 
+  ? 'ts-ok' 
+  : ((c.status === 'WARN' || c.status === 'HIGH_WARN' || c.status === 'HI_WARN') 
+      ? 'ts-warn' 
+      : 'ts-fail');
+
       const esc = s => (''+s).replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
 
       // جهّز التفاصيل مع فلترة العربية عندما LANG=en
