@@ -2355,7 +2355,7 @@ ${d.logs || "-"}
 
   Object.assign(txt.en, {
     ts_init_title: 'Initializing',
-    ts_init_msg: 'Recent boot/replug detected. For best diagnostic result wait ts_init_remaining seconds, then run diagnostics again.',
+    ts_init_msg: 'Recent boot/replug detected. For best diagnostic result wait Remaining seconds, then run diagnostics again.',
     ts_init_now: 'Current time',
     ts_init_boot_time: 'Boot/replug time',
     ts_init_remaining: 'Remaining',
