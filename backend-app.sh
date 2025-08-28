@@ -1146,13 +1146,13 @@ def api_troubleshoot_run():
         safe_actions.append(("Restart readsb (no data)","sudo systemctl restart readsb"))
 
     
-    # 5.1) readsb restarts (last 24h)
-        try:
+        # 5.1) readsb restarts (last 24h)
+    try:
         rs = _readsb_restart_count(24)
         avg_h = (24.0/rs) if rs > 0 else None
 
-        # تصنيف جديد: بدون FAIL
-        # 0–5 => OK  |  6–12 => WARN  |  >12 => HIGH WARN
+        # تصنيف بلا FAIL:
+        # 0–5 => OK  |  6–12 => WARN  |  >12 => HIGH_WARN
         if rs == 0:
             status = "OK";   note = "no restarts observed in the last 24h"
         elif rs <= 5:
@@ -1163,8 +1163,11 @@ def api_troubleshoot_run():
             status = "HIGH_WARN"; note = "frequency > once every 2 hours (high warning)"
 
         freq = f" ~ every {avg_h:.1f}h" if avg_h else ""
-        details = f"restart events counted in journal: {rs}{freq}\n{note}\n" \
-                  "Guidance: frequent restarts often indicate power/USB instability for the SDR."
+        details = (
+            f"restart events counted in journal: {rs}{freq}\n"
+            f"{note}\n"
+            "Guidance: frequent restarts often indicate power/USB instability for the SDR."
+        )
 
         checks.append({
             "id":"readsb_restarts_24h",
@@ -1173,7 +1176,6 @@ def api_troubleshoot_run():
             "details": details
         })
 
-        # HIGH_WARN
         if status in ("WARN", "HIGH_WARN"):
             summary_warnings += 1
 
