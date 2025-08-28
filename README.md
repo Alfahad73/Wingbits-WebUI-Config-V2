@@ -31,6 +31,10 @@ Access the web interface at: http://localhost:port
 <img width="1570" height="857" alt="image" src="https://github.com/user-attachments/assets/b66286c7-36c2-4794-8774-ffe102e1cb19" />
 <img width="1516" height="537" alt="image" src="https://github.com/user-attachments/assets/b9b7e2de-27a1-466a-9b82-b967f416179c" />
 <img width="1533" height="306" alt="image" src="https://github.com/user-attachments/assets/44680229-8832-4ac1-93a2-f8ab189c7daf" />
+<img width="1531" height="837" alt="Screenshot 2025-08-28 093903" src="https://github.com/user-attachments/assets/195e209b-9963-44b1-8e45-7254ca246a70" />
+<img width="1399" height="784" alt="Screenshot 2025-08-28 094114" src="https://github.com/user-attachments/assets/67b0213f-d369-47b7-993f-0f2a2cc99556" />
+<img width="1398" height="779" alt="Screenshot 2025-08-28 094219" src="https://github.com/user-attachments/assets/0e6862a4-938c-4a92-936d-074032383675" />
+<img width="1398" height="376" alt="Screenshot 2025-08-28 094252" src="https://github.com/user-attachments/assets/115e4747-5bb8-49dc-b46b-8cdc3736efdb" />
 <img width="1512" height="276" alt="image" src="https://github.com/user-attachments/assets/f552bffe-0aa8-4924-a62d-92dc2fe1f7f9" />
 <img width="1500" height="299" alt="image" src="https://github.com/user-attachments/assets/f5398faf-3f0f-455a-975b-dfb7cf02552a" />
 <img width="1511" height="722" alt="image" src="https://github.com/user-attachments/assets/41a1c3b6-8a93-4e0f-988c-191a18c28756" />
