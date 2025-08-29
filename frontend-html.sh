@@ -2351,7 +2351,6 @@ ${d.logs || "-"}
 <script id="WB_TS_V3_INJECTION">
 ;(() => {
   // ==== i18n additions ====
-  const txt = window.txt || { en: {}, ar: {} };
 
  Object.assign(txt.en, {
   ts_init_title: 'Initializing',
@@ -2399,9 +2398,9 @@ Object.assign(txt.ar, {
       const elapsed = Math.max(0, Math.floor((Date.now()-_tsBootEpochMs)/1000));
       const minR = Math.max(0, 180 - elapsed);
       const maxR = Math.max(0, 300 - elapsed);
-      const txt = (minR + '–' + maxR + 's');
-      rem.textContent = txt;
-      if (remInline) remInline.textContent = txt;
+      const waitTxt = (minR + '–' + maxR + 's');
+      rem.textContent = waitTxt;
+      if (remInline) remInline.textContent = waitTxt;
       if (bootAt) bootAt.textContent = _wb_formatTime(new Date(_tsBootEpochMs));
     } else {
       rem.textContent = '180–300s';
