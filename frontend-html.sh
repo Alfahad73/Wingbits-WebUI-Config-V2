@@ -646,7 +646,7 @@ body.rtl .diagnostics-section {
         { key: 'set_gain', label: LANG === 'ar' ? 'ضبط الكسب' : 'Set Gain' },
         { key: 'qol_options', label: LANG === 'ar' ? 'خيارات الجودة' : 'QOL Options' },
         { key: 'support_menu', label: txt[LANG].support_menu_title },
-        { key: 'wingbits_metrics', label: LANG === 'ar' ? 'مقاييس Wingbits' : 'Wingbits Metrics', isExternalLink: true, url: (location.protocol + '//' + location.hostname + ':8088/metrics'),
+        { key: 'wingbits_metrics', label: LANG === 'ar' ? 'مقاييس Wingbits' : 'Wingbits Metrics', isExternalLink: true, url: (location.protocol + '//' + location.hostname + ':8088/metrics') },
         { key: 'restart', label: LANG === 'ar' ? 'إعادة/إيقاف التشغيل' : 'Restart' },
         { key: 'change_password', label: LANG === 'ar' ? 'تغيير كلمة المرور' : 'Change Password' },
         { key: 'urls', label: LANG === 'ar' ? 'روابط محلية' : 'URLs' },
