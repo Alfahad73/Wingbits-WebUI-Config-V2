@@ -1365,6 +1365,113 @@ def api_troubleshoot_run():
         }
     })
 
+# ---------- Diagnostics: run handy commands ----------
+@app.route('/api/diagnostics/run-command', methods=['POST'])
+@login_required
+def api_diagnostics_run_command():
+    lang = request.args.get('lang', 'en')
+    data = request.get_json(silent=True) or {}
+    command_key = (data.get('command') or '').strip()
+
+    # أوامر التشخيص المتاحة
+    commands = {
+        # View OS Release Details
+        'os_release': (
+            r'cat /etc/os-release || cat /usr/lib/os-release',
+            'diagnostics_os_release'
+        ),
+        # View USB Devices
+        'lsusb': (
+            r'lsusb || (command -v usb-devices >/dev/null && usb-devices) || echo "lsusb not available"',
+            'diagnostics_lsusb'
+        ),
+        # Check Voltage Throttling (Pi only)
+        'throttled': (
+            r'vcgencmd get_throttled || echo "vcgencmd not available (Pi only)"',
+            'diagnostics_throttled'
+        ),
+        # View Wingbits Detailed Status
+        'wingbits_status_verbose': (
+            r'systemctl status --no-pager -l wingbits | tail -n 150 || sudo wingbits status --verbose',
+            'diagnostics_wingbits_status_verbose'
+        ),
+        # View GeoSigner Info
+        'geosigner_info': (
+            r'sudo wingbits geosigner info 2>&1 || journalctl -u wingbits --since "2 hours ago" --no-pager | tail -n 200',
+            'diagnostics_geosigner_info'
+        ),
+    }
+
+    if command_key not in commands:
+        return jsonify({'ok': False, 'msg': 'Invalid command'}), 400
+
+    shell_cmd, desc_key = commands[command_key]
+
+    try:
+        out = subprocess.check_output(
+            ['bash', '-lc', shell_cmd],
+            stderr=subprocess.STDOUT,
+            timeout=40
+        ).decode('utf-8', 'ignore')
+    except subprocess.CalledProcessError as e:
+        out = (e.output or b'').decode('utf-8', 'ignore')
+    except Exception as e:
+        return jsonify({'ok': False, 'msg': str(e)}), 500
+
+    return jsonify({'ok': True, 'result': out, 'desc': lang_desc(desc_key, lang)})
+
+# ---------- Diagnostics: generate temporary log link ----------
+@app.route('/api/diagnostics/generate-log-link', methods=['POST'])
+@login_required
+def api_diagnostics_generate_log_link():
+    lang = request.args.get('lang', 'en')
+    data = request.get_json(silent=True) or {}
+    log_type = (data.get('type') or 'all').strip()
+
+    if log_type == 'wingbits_readsb':
+        jcmd = r'journalctl -u wingbits -u readsb -n100000 --no-pager'
+        desc_key = 'diagnostics_wingbits_readsb_logs'
+    elif log_type == 'all':
+        jcmd = r'journalctl -n100000 --no-pager'
+        desc_key = 'diagnostics_all_logs'
+    else:
+        return jsonify({'ok': False, 'msg': 'Invalid log type'}), 400
+
+    # 1) اجمع السجلات
+    try:
+        logs = subprocess.check_output(['bash', '-lc', jcmd],
+                                       stderr=subprocess.STDOUT,
+                                       timeout=60)
+    except subprocess.CalledProcessError as e:
+        logs = e.output or b''
+    except Exception as e:
+        return jsonify({'ok': False, 'msg': 'Failed to collect logs: ' + str(e)}), 500
+
+    # 2) حاول رفعها إلى 0x0.st كرابط مؤقت
+    try:
+        p = subprocess.Popen(
+            ['bash', '-lc', 'curl -s -F"file=@-" https://0x0.st'],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        url, _ = p.communicate(input=logs, timeout=30)
+        url = (url or b'').decode('utf-8', 'ignore').strip()
+        if url.startswith('http'):
+            return jsonify({'ok': True, 'result': url, 'desc': lang_desc(desc_key, lang)})
+    except Exception:
+        pass
+
+    # 3) إن فشل الرفع: خزّن محلياً كملف
+    try:
+        outdir = '/opt/wingbits-station-web/runtime'
+        os.makedirs(outdir, exist_ok=True)
+        outpath = os.path.join(outdir, f'logs_{int(time.time())}.txt')
+        with open(outpath, 'wb') as f:
+            f.write(logs)
+        return jsonify({'ok': True, 'result': f'Saved locally: {outpath}', 'desc': lang_desc(desc_key, lang)})
+    except Exception as e:
+        return jsonify({'ok': False, 'msg': 'Failed to store logs: ' + str(e)}), 500
+
+
 # ----------------- NEW GeoSigner APIs -----------------
 @app.route('/api/geosigner/location', methods=['GET'])
 @login_required
